@@ -7,25 +7,23 @@ namespace Tests\Integration;
 use Tests\Fixtures\Player;
 use Tests\Fixtures\PlayerRepository;
 use Tests\Fixtures\Team;
-use Tests\Fixtures\TeamRepository;
 use Tests\NixPHPTestCase;
 use function NixPHP\ORM\repo;
 
 class AbstractRepositoryTest extends NixPHPTestCase
 {
     private PlayerRepository $playerRepository;
-    private TeamRepository $teamRepository;
 
     private int $alphaPlayerId;
-    private int $betaPlayerId;
     private int $teamId;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->clearFixtures();
-        $this->playerRepository = repo(PlayerRepository::class);
-        $this->teamRepository = repo(TeamRepository::class);
+        $repository = repo(PlayerRepository::class);
+        $this->assertInstanceOf(PlayerRepository::class, $repository);
+        $this->playerRepository = $repository;
         $this->seedFixtures();
     }
 
@@ -43,6 +41,18 @@ class AbstractRepositoryTest extends NixPHPTestCase
         $this->assertSame('Beta', $matches[0]->getName());
     }
 
+    public function testFindBySupportsOffsetWithoutLimit(): void
+    {
+        $matches = $this->playerRepository->findBy(
+            [],
+            orderBy: ['id' => 'ASC'],
+            offset: 1
+        );
+
+        $this->assertCount(1, $matches);
+        $this->assertSame('Beta', $matches[0]->getName());
+    }
+
     public function testFindOneByReturnsSingleEntity(): void
     {
         $entity = $this->playerRepository->findOneBy('name', 'Alpha');
@@ -54,6 +64,7 @@ class AbstractRepositoryTest extends NixPHPTestCase
     {
         $players = $this->playerRepository->findByPivot(Team::class, $this->teamId);
         $this->assertCount(1, $players);
+        $this->assertInstanceOf(Player::class, $players[0]);
         $this->assertSame('Alpha', $players[0]->getName());
     }
 
@@ -63,6 +74,7 @@ class AbstractRepositoryTest extends NixPHPTestCase
 
         $result = $this->playerRepository->findOrCreateBy('name', 'Zed');
 
+        $this->assertInstanceOf(Player::class, $result);
         $this->assertSame('Zed', $result->getName());
         $count = self::$pdo->prepare('SELECT COUNT(*) FROM players WHERE name = :name');
         $count->execute(['name' => 'Zed']);
@@ -79,11 +91,22 @@ class AbstractRepositoryTest extends NixPHPTestCase
         $this->assertEqualsCanonicalizing($values, $names);
     }
 
+    public function testFindOrCreateManyByCreatesDuplicateInputOnlyOnce(): void
+    {
+        $results = $this->playerRepository->findOrCreateManyBy('name', ['Zed', 'Zed']);
+
+        $this->assertCount(2, $results);
+        $this->assertSame($results[0], $results[1]);
+
+        $count = self::$pdo->query("SELECT COUNT(*) FROM players WHERE name = 'Zed'");
+        $this->assertSame(1, (int) $count->fetchColumn());
+    }
+
     private function seedFixtures(): void
     {
         $this->teamId = $this->insertTeam('Red');
         $this->alphaPlayerId = $this->insertPlayer('Alpha', 24);
-        $this->betaPlayerId = $this->insertPlayer('Beta', 30);
+        $this->insertPlayer('Beta', 30);
         $this->insertPivot($this->alphaPlayerId, $this->teamId);
     }
 
@@ -103,7 +126,9 @@ class AbstractRepositoryTest extends NixPHPTestCase
 
     private function insertPivot(int $playerId, int $teamId): void
     {
-        $stmt = self::$pdo->prepare('INSERT INTO player_team (player_id, team_id) VALUES (:player, :team)');
+        $stmt = self::$pdo->prepare(
+            'INSERT INTO player_team_links (player_id, team_id) VALUES (:player, :team)'
+        );
         $stmt->execute(['player' => $playerId, 'team' => $teamId]);
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NixPHP\ORM\Core;
 
-use ReflectionClass;
+use ReflectionObject;
 
 trait EntityTrait
 {
@@ -55,12 +55,11 @@ trait EntityTrait
      */
     public function getFields(): array
     {
-        $reflection = new ReflectionClass($this);
+        $reflection = new ReflectionObject($this);
         $fields = [];
 
         foreach ($reflection->getProperties(\ReflectionProperty::IS_PROTECTED) as $prop) {
             $name = $prop->getName();
-            $prop->setAccessible(true);
 
             if ($name === $this->getPrimaryKey()) continue;
 
@@ -79,11 +78,10 @@ trait EntityTrait
      */
     public function getRelations(): array
     {
-        $reflection = new ReflectionClass($this);
+        $reflection = new ReflectionObject($this);
         $relations = [];
 
         foreach ($reflection->getProperties() as $prop) {
-            $prop->setAccessible(true);
             $value = $prop->getValue($this);
 
             if ($value instanceof EntityInterface && !$this->isAbstract($value)) {
@@ -121,7 +119,6 @@ trait EntityTrait
      */
     private function isAbstract(EntityInterface $entity): bool
     {
-        return (new \ReflectionClass($entity))->isAbstract();
+        return (new ReflectionObject($entity))->isAbstract();
     }
 }
-

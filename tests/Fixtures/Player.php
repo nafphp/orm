@@ -14,7 +14,7 @@ class Player extends AbstractModel
     protected int $age = 0;
     protected array $teams = [];
     public array $pivotTables = [
-        Team::class => 'player_team',
+        Team::class => 'player_team_links',
     ];
 
     public function getName(): string

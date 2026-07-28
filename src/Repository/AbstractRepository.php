@@ -9,8 +9,10 @@ use InvalidArgumentException;
 use NixPHP\ORM\Core\EntityInterface;
 use NixPHP\ORM\Core\EntityManager;
 use NixPHP\ORM\Exception\DatabaseException;
+use NixPHP\ORM\Support\DatabaseHelper;
+use NixPHP\Decorators\AutoResolvingContainer;
 use PDO;
-use Throwable;
+use RuntimeException;
 use function NixPHP\app;
 
 abstract class AbstractRepository
@@ -39,7 +41,12 @@ abstract class AbstractRepository
     protected function getEntity(): EntityInterface
     {
         $class = $this->getEntityClass();
-        return app()->container()->make($class);
+        $container = app()->container();
+        if (!$container instanceof AutoResolvingContainer) {
+            throw new RuntimeException('ORM repositories require an auto-resolving container.');
+        }
+
+        return $container->make($class);
     }
 
     /**
@@ -62,7 +69,7 @@ abstract class AbstractRepository
     }
 
     /**
-     * @param string $relatedClass
+     * @param class-string<EntityInterface> $relatedClass
      * @param string $selfTable
      * @param string $relatedTable
      *
@@ -71,19 +78,14 @@ abstract class AbstractRepository
     protected function getPivotTable(string $relatedClass, string $selfTable, string $relatedTable): string
     {
         $entity = $this->getEntity();
-
-        if (!empty($entity->pivotTables[$relatedClass])) {
-            return $entity->pivotTables[$relatedClass];
-        }
-
         $relatedEntity = new $relatedClass();
-        if (!empty($relatedEntity->pivotTables[$this->getEntityClass()])) {
-            return $relatedEntity->pivotTables[$this->getEntityClass()];
-        }
 
-        $items = [$selfTable, $relatedTable];
-        sort($items);
-        return implode('_', $items);
+        return DatabaseHelper::getPivotTableName(
+            $entity,
+            $relatedEntity,
+            $selfTable,
+            $relatedTable
+        );
     }
 
     protected function getColumnWhitelist(): array
@@ -104,24 +106,17 @@ abstract class AbstractRepository
 
     protected function quoteIdentifier(string $identifier): string
     {
-        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier)) {
-            throw new InvalidArgumentException("Invalid identifier: {$identifier}");
-        }
-
-        $quote = $this->getIdentifierQuote();
-        return $quote . str_replace($quote, $quote . $quote, $identifier) . $quote;
+        return DatabaseHelper::quoteIdentifier($this->pdo, $identifier);
     }
 
     protected function getIdentifierQuote(): string
     {
-        $driver = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) ?? '');
+        return DatabaseHelper::getIdentifierQuote($this->pdo);
+    }
 
-        return match ($driver) {
-            'mysql' => '`',
-            'pgsql' => '"',
-            'sqlite' => '"',
-            default => '"',
-        };
+    protected function getDriverName(): string
+    {
+        return DatabaseHelper::getDriverName($this->pdo);
     }
 
     protected function quoteColumn(string $column): string
@@ -193,6 +188,12 @@ abstract class AbstractRepository
 
         if ($limit !== null) {
             $sql .= " LIMIT " . (int)$limit;
+        } elseif ($offset !== null) {
+            $sql .= match ($this->getDriverName()) {
+                'mysql' => ' LIMIT 18446744073709551615',
+                'sqlite' => ' LIMIT -1',
+                default => '',
+            };
         }
         if ($offset !== null) {
             $sql .= " OFFSET " . (int)$offset;
@@ -228,6 +229,12 @@ abstract class AbstractRepository
      */
     public function findByPivot(string $pivotWithClass, int $pivotId): array
     {
+        if (!is_subclass_of($pivotWithClass, EntityInterface::class)) {
+            throw new InvalidArgumentException(
+                "{$pivotWithClass} must implement " . EntityInterface::class
+            );
+        }
+
         $thisTable     = $this->getTable(true);
         $relatedTable  = strtolower(basename(str_replace('\\', '/', $pivotWithClass)));
 
@@ -291,7 +298,10 @@ abstract class AbstractRepository
             $existing[$key] = $this->hydrate($row);
         }
 
-        $missing = array_diff($values, array_keys($existing));
+        $missing = array_unique(
+            array_diff($values, array_keys($existing)),
+            SORT_REGULAR
+        );
 
         foreach ($missing as $value) {
             $entity = $this->create($field, $value);
