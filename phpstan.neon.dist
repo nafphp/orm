@@ -1,0 +1,8 @@
+parameters:
+    level: 5
+    paths:
+        - src
+        - tests
+    scanFiles:
+        - vendor/nixphp/database/src/functions.php
+    tmpDir: /tmp/nixphp-orm-phpstan

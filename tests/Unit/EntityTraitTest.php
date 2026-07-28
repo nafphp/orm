@@ -47,7 +47,7 @@ class EntityTraitTest extends TestCase
     {
         $deprecations = [];
         set_error_handler(static function (int $severity, string $message) use (&$deprecations): bool {
-            if ($severity !== E_DEPRECATED) {
+            if (!in_array($severity, [E_DEPRECATED, E_USER_DEPRECATED], true)) {
                 return false;
             }
 

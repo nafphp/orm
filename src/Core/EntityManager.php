@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace NixPHP\ORM\Core;
 
-use InvalidArgumentException;
 use NixPHP\ORM\Exception\DatabaseException;
+use NixPHP\ORM\Support\DatabaseHelper;
 use PDO;
+use PDOException;
 use ReflectionObject;
 use ReflectionProperty;
 use RuntimeException;
@@ -178,7 +179,21 @@ class EntityManager
 
         foreach ($relations as $relatedEntity) {
             if ($this->hasForeignKeyFor($relatedEntity, $entity)) {
-                $this->injectForeignKey($relatedEntity, $entity, $snapshots);
+                $foreignKeyChanged = $this->injectForeignKey(
+                    $relatedEntity,
+                    $entity,
+                    $snapshots
+                );
+                $relatedObjectId = spl_object_id($relatedEntity);
+
+                if (($states[$relatedObjectId] ?? null) === 'persisted') {
+                    if ($foreignKeyChanged) {
+                        $this->upsert($relatedEntity);
+                    }
+
+                    continue;
+                }
+
                 $this->persistEntity($relatedEntity, $states, $processedPivots, $snapshots);
                 continue;
             }
@@ -246,7 +261,7 @@ class EntityManager
     protected function hasForeignKeyFor(EntityInterface $child, EntityInterface $parent): bool
     {
         $fk = $parent->getTableName(true) . '_id';
-        $ref = new \ReflectionClass($child);
+        $ref = new ReflectionObject($child);
         return $ref->hasProperty($fk);
     }
 
@@ -260,13 +275,13 @@ class EntityManager
      *     value: mixed
      * }> $snapshots
      *
-     * @return void
+     * @return bool Whether the foreign key value changed.
      */
     protected function injectForeignKey(
         EntityInterface $child,
         EntityInterface $parent,
         array &$snapshots
-    ): void
+    ): bool
     {
         $fk = $parent->getTableName(true) . '_id';
         if ($parent->getId() === null) {
@@ -275,7 +290,17 @@ class EntityManager
 
         $this->rememberProperty($child, $fk, $snapshots);
         $property = (new ReflectionObject($child))->getProperty($fk);
+        $currentValue = $property->isInitialized($child)
+            ? $property->getValue($child)
+            : null;
+
+        if ($currentValue === $parent->getId()) {
+            return false;
+        }
+
         $property->setValue($child, $parent->getId());
+
+        return true;
     }
 
     /**
@@ -286,7 +311,13 @@ class EntityManager
      */
     protected function insertPivot(EntityInterface $a, EntityInterface $b): void
     {
-        $pivot = $this->quoteIdentifier($this->getPivotTableName($a, $b));
+        $pivotName = DatabaseHelper::getPivotTableName(
+            $a,
+            $b,
+            $a->getTableName(true),
+            $b->getTableName(true)
+        );
+        $pivot = $this->quoteIdentifier($pivotName);
 
         $aCol = $this->quoteIdentifier($a->getTableName(true) . '_id');
         $bCol = $this->quoteIdentifier($b->getTableName(true) . '_id');
@@ -297,25 +328,22 @@ class EntityManager
             throw new RuntimeException('Cannot persist a pivot relation before both entities have IDs.');
         }
 
-        $stmt = $this->pdo->prepare(
-            "SELECT 1 FROM {$pivot} WHERE {$aCol} = :a AND {$bCol} = :b"
-        );
-        $stmt->execute([
-            ':a' => $aId,
-            ':b' => $bId,
-        ]);
-
-        if ($stmt->fetchColumn() !== false) {
-            return;
+        $sql = "INSERT INTO {$pivot} ({$aCol}, {$bCol}) VALUES (:a, :b)";
+        if (DatabaseHelper::getDriverName($this->pdo) === 'pgsql') {
+            $sql .= ' ON CONFLICT DO NOTHING';
         }
 
-        $stmt = $this->pdo->prepare(
-            "INSERT INTO {$pivot} ({$aCol}, {$bCol}) VALUES (:a, :b)"
-        );
-        $stmt->execute([
-            ':a' => $aId,
-            ':b' => $bId,
-        ]);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':a' => $aId,
+                ':b' => $bId,
+            ]);
+        } catch (PDOException $e) {
+            if (!$this->isDuplicateKeyException($e)) {
+                throw $e;
+            }
+        }
     }
 
     /**
@@ -350,44 +378,6 @@ class EntityManager
         sort($objectIds);
 
         return implode(':', $objectIds);
-    }
-
-    private function getPivotTableName(EntityInterface $a, EntityInterface $b): string
-    {
-        $aMappings = $this->getPivotTableMappings($a);
-        if (isset($aMappings[$b::class]) && is_string($aMappings[$b::class])) {
-            return $aMappings[$b::class];
-        }
-
-        $bMappings = $this->getPivotTableMappings($b);
-        if (isset($bMappings[$a::class]) && is_string($bMappings[$a::class])) {
-            return $bMappings[$a::class];
-        }
-
-        $tables = [$a->getTableName(true), $b->getTableName(true)];
-        sort($tables);
-
-        return implode('_', $tables);
-    }
-
-    /**
-     * @return array<class-string<EntityInterface>, string>
-     */
-    private function getPivotTableMappings(EntityInterface $entity): array
-    {
-        $reflection = new ReflectionObject($entity);
-        if (!$reflection->hasProperty('pivotTables')) {
-            return [];
-        }
-
-        $property = $reflection->getProperty('pivotTables');
-        if (!$property->isInitialized($entity)) {
-            return [];
-        }
-
-        $mappings = $property->getValue($entity);
-
-        return is_array($mappings) ? $mappings : [];
     }
 
     /**
@@ -460,13 +450,23 @@ class EntityManager
 
     private function quoteIdentifier(string $identifier): string
     {
-        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier)) {
-            throw new InvalidArgumentException("Invalid identifier: {$identifier}");
-        }
+        return DatabaseHelper::quoteIdentifier($this->pdo, $identifier);
+    }
 
-        $driver = strtolower((string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
-        $quote = $driver === 'mysql' ? '`' : '"';
+    private function isDuplicateKeyException(PDOException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+        $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+        $message = strtolower((string) ($exception->errorInfo[2] ?? $exception->getMessage()));
 
-        return $quote . $identifier . $quote;
+        return match (DatabaseHelper::getDriverName($this->pdo)) {
+            'pgsql' => $sqlState === '23505',
+            'mysql' => $sqlState === '23000' && $driverCode === 1062,
+            'sqlite' => $sqlState === '23000'
+                && $driverCode === 19
+                && str_contains($message, 'unique constraint failed'),
+            default => $sqlState === '23505'
+                || ($sqlState === '23000' && str_contains($message, 'duplicate')),
+        };
     }
 }

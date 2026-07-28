@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -37,6 +39,10 @@ jobs:
 
       - name: Run test suite
         run: composer test
+
+      - name: Run static analysis
+        if: matrix.php == '8.3'
+        run: composer analyse
 
   mariadb:
     name: MariaDB / PHP 8.3
@@ -68,6 +74,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2

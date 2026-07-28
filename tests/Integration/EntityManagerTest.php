@@ -6,7 +6,9 @@ namespace Tests\Integration;
 
 use NixPHP\ORM\Exception\DatabaseException;
 use RuntimeException;
+use Tests\Fixtures\Milestone;
 use Tests\Fixtures\Player;
+use Tests\Fixtures\Portfolio;
 use Tests\Fixtures\Project;
 use Tests\Fixtures\Task;
 use Tests\Fixtures\Team;
@@ -59,6 +61,17 @@ class EntityManagerTest extends NixPHPTestCase
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM teams')->fetchColumn());
     }
 
+    public function testPivotWriteDoesNotIgnoreForeignKeyViolation(): void
+    {
+        $player = new Player(['id' => 999_999, 'name' => 'Missing', 'age' => 28]);
+        $team = new Team(['name' => 'Existing']);
+        $player->addTeam($team);
+        $team->addPlayer($player);
+
+        $this->expectException(DatabaseException::class);
+        em()->save($player);
+    }
+
     public function testSavingSameEntityAgainPersistsChanges(): void
     {
         $player = new Player(['name' => 'Walker', 'age' => 28]);
@@ -101,6 +114,31 @@ class EntityManagerTest extends NixPHPTestCase
         $this->assertSame($project->getId(), $task->getProjectId());
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn());
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM tasks')->fetchColumn());
+    }
+
+    public function testInjectedForeignKeyIsFlushedForAlreadyPersistedEntity(): void
+    {
+        $portfolio = new Portfolio(['name' => 'Roadmap']);
+        $project = new Project(['name' => 'ORM']);
+        $milestone = new Milestone(['title' => 'Release']);
+
+        $portfolio->addMilestone($milestone);
+        $project->addMilestone($milestone);
+        $portfolio->addProject($project);
+
+        em()->save($portfolio);
+
+        $stmt = self::$pdo->prepare(
+            'SELECT portfolio_id, project_id FROM milestones WHERE id = :id'
+        );
+        $stmt->execute(['id' => $milestone->getId()]);
+        $row = $stmt->fetch();
+
+        $this->assertIsArray($row);
+        $this->assertSame($portfolio->getId(), (int) $row['portfolio_id']);
+        $this->assertSame($project->getId(), (int) $row['project_id']);
+        $this->assertSame($portfolio->getId(), $milestone->getPortfolioId());
+        $this->assertSame($project->getId(), $milestone->getProjectId());
     }
 
     public function testFailedSaveRestoresIdsAndCanBeRetried(): void

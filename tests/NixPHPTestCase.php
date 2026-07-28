@@ -26,13 +26,20 @@ class NixPHPTestCase extends TestCase
         $idColumn = $driver === 'mysql'
             ? 'BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY'
             : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+        $foreignIdColumn = $driver === 'mysql' ? 'BIGINT UNSIGNED' : 'INTEGER';
         $textColumn = $driver === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
 
+        if ($driver === 'sqlite') {
+            $pdo->exec('PRAGMA foreign_keys = ON');
+        }
+
         $pdo->exec('DROP TABLE IF EXISTS player_team_links');
+        $pdo->exec('DROP TABLE IF EXISTS milestones');
         $pdo->exec('DROP TABLE IF EXISTS tasks');
         $pdo->exec('DROP TABLE IF EXISTS players');
         $pdo->exec('DROP TABLE IF EXISTS teams');
         $pdo->exec('DROP TABLE IF EXISTS projects');
+        $pdo->exec('DROP TABLE IF EXISTS portfolios');
 
         $pdo->exec(
             "CREATE TABLE players (
@@ -50,17 +57,20 @@ class NixPHPTestCase extends TestCase
         );
 
         $pdo->exec(
-            'CREATE TABLE player_team_links (
-                player_id INTEGER NOT NULL,
-                team_id INTEGER NOT NULL,
-                UNIQUE(player_id, team_id)
-            )'
+            "CREATE TABLE player_team_links (
+                player_id {$foreignIdColumn} NOT NULL,
+                team_id {$foreignIdColumn} NOT NULL,
+                UNIQUE(player_id, team_id),
+                FOREIGN KEY (player_id) REFERENCES players(id),
+                FOREIGN KEY (team_id) REFERENCES teams(id)
+            )"
         );
 
         $pdo->exec(
             "CREATE TABLE projects (
                 id {$idColumn},
-                name {$textColumn} NOT NULL
+                name {$textColumn} NOT NULL,
+                portfolio_id INTEGER NULL
             )"
         );
 
@@ -71,6 +81,22 @@ class NixPHPTestCase extends TestCase
                 project_id INTEGER NOT NULL
             )"
         );
+
+        $pdo->exec(
+            "CREATE TABLE portfolios (
+                id {$idColumn},
+                name {$textColumn} NOT NULL
+            )"
+        );
+
+        $pdo->exec(
+            "CREATE TABLE milestones (
+                id {$idColumn},
+                title {$textColumn} NOT NULL,
+                portfolio_id INTEGER NULL,
+                project_id INTEGER NULL
+            )"
+        );
     }
 
     protected function clearFixtures(): void
@@ -79,8 +105,10 @@ class NixPHPTestCase extends TestCase
         $pdo->exec('DELETE FROM player_team_links');
         $pdo->exec('DELETE FROM players');
         $pdo->exec('DELETE FROM teams');
+        $pdo->exec('DELETE FROM milestones');
         $pdo->exec('DELETE FROM tasks');
         $pdo->exec('DELETE FROM projects');
+        $pdo->exec('DELETE FROM portfolios');
     }
 
     /**

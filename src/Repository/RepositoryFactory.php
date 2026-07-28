@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NixPHP\ORM\Repository;
 
 use InvalidArgumentException;
+use NixPHP\Decorators\AutoResolvingContainer;
 use NixPHP\ORM\Core\EntityManager;
 use PDO;
+use RuntimeException;
 use function NixPHP\app;
 
 class RepositoryFactory
@@ -41,7 +43,12 @@ class RepositoryFactory
             throw new InvalidArgumentException("{$repository} must extend " . AbstractRepository::class);
         }
 
-        return $this->instances[$repository] ??= app()->container()->make($repository, [
+        $container = app()->container();
+        if (!$container instanceof AutoResolvingContainer) {
+            throw new RuntimeException('RepositoryFactory requires an auto-resolving container.');
+        }
+
+        return $this->instances[$repository] ??= $container->make($repository, [
             $this->pdo,
             $this->entityManager,
         ]);

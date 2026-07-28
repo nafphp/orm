@@ -25,7 +25,7 @@ abstract class AbstractModel implements EntityInterface
     {
         $this->id = $data['id'] ?? null;
         foreach ($data as $key => $value) {
-            $ref = new \ReflectionClass($this);
+            $ref = new \ReflectionObject($this);
             if ($ref->hasProperty($key)) {
                 $this->$key = $value;
             }
