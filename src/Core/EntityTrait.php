@@ -60,7 +60,6 @@ trait EntityTrait
 
         foreach ($reflection->getProperties(\ReflectionProperty::IS_PROTECTED) as $prop) {
             $name = $prop->getName();
-            $prop->setAccessible(true);
 
             if ($name === $this->getPrimaryKey()) continue;
 
@@ -83,7 +82,6 @@ trait EntityTrait
         $relations = [];
 
         foreach ($reflection->getProperties() as $prop) {
-            $prop->setAccessible(true);
             $value = $prop->getValue($this);
 
             if ($value instanceof EntityInterface && !$this->isAbstract($value)) {
@@ -124,4 +122,3 @@ trait EntityTrait
         return (new \ReflectionClass($entity))->isAbstract();
     }
 }
-

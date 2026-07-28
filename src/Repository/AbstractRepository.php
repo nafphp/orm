@@ -114,14 +114,17 @@ abstract class AbstractRepository
 
     protected function getIdentifierQuote(): string
     {
-        $driver = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) ?? '');
-
-        return match ($driver) {
+        return match ($this->getDriverName()) {
             'mysql' => '`',
             'pgsql' => '"',
             'sqlite' => '"',
             default => '"',
         };
+    }
+
+    protected function getDriverName(): string
+    {
+        return strtolower((string) ($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
     }
 
     protected function quoteColumn(string $column): string
@@ -193,6 +196,12 @@ abstract class AbstractRepository
 
         if ($limit !== null) {
             $sql .= " LIMIT " . (int)$limit;
+        } elseif ($offset !== null) {
+            $sql .= match ($this->getDriverName()) {
+                'mysql' => ' LIMIT 18446744073709551615',
+                'sqlite' => ' LIMIT -1',
+                default => '',
+            };
         }
         if ($offset !== null) {
             $sql .= " OFFSET " . (int)$offset;
@@ -291,7 +300,10 @@ abstract class AbstractRepository
             $existing[$key] = $this->hydrate($row);
         }
 
-        $missing = array_diff($values, array_keys($existing));
+        $missing = array_unique(
+            array_diff($values, array_keys($existing)),
+            SORT_REGULAR
+        );
 
         foreach ($missing as $value) {
             $entity = $this->create($field, $value);

@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace NixPHP\ORM\Core;
 
+use InvalidArgumentException;
 use NixPHP\ORM\Exception\DatabaseException;
 use PDO;
+use ReflectionObject;
+use ReflectionProperty;
 use RuntimeException;
 use Throwable;
 
 class EntityManager
 {
-    protected array $stored = [];
-
     private int $transactionLevel = 0;
 
     /**
@@ -41,13 +42,19 @@ class EntityManager
      */
     public function commit(): void
     {
-        $this->transactionLevel--;
-
         if ($this->transactionLevel === 0) {
+            throw new RuntimeException('Cannot commit without an active transaction.');
+        }
+
+        $targetLevel = $this->transactionLevel - 1;
+
+        if ($targetLevel === 0) {
             $this->pdo->commit();
         } else {
-            $this->pdo->exec("RELEASE SAVEPOINT LEVEL{$this->transactionLevel}");
+            $this->pdo->exec("RELEASE SAVEPOINT LEVEL{$targetLevel}");
         }
+
+        $this->transactionLevel = $targetLevel;
     }
 
     /**
@@ -55,13 +62,21 @@ class EntityManager
      */
     public function rollback(): void
     {
-        $this->transactionLevel--;
-
         if ($this->transactionLevel === 0) {
+            throw new RuntimeException('Cannot roll back without an active transaction.');
+        }
+
+        $targetLevel = $this->transactionLevel - 1;
+
+        if ($targetLevel === 0) {
             $this->pdo->rollBack();
         } else {
-            $this->pdo->exec("ROLLBACK TO SAVEPOINT LEVEL{$this->transactionLevel}");
+            $savepoint = "LEVEL{$targetLevel}";
+            $this->pdo->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            $this->pdo->exec("RELEASE SAVEPOINT {$savepoint}");
         }
+
+        $this->transactionLevel = $targetLevel;
     }
 
     /**
@@ -72,43 +87,39 @@ class EntityManager
      */
     public function save(EntityInterface $root): void
     {
+        $entryTransactionLevel = $this->transactionLevel;
+        $snapshots = [];
+        $states = [];
+        $processedPivots = [];
+
         $this->begin();
 
         try {
-            $entities = $this->collectEntities($root);
-
-            // 1. Eltern speichern (ohne Relationen)
-            foreach ($entities as $entity) {
-                if (!$this->isStored($entity)) {
-                    $this->upsert($entity);
-                    $this->markStored($entity);
-                }
-            }
-
-            // 2. Relationen auflösen
-            foreach ($entities as $entity) {
-                foreach ($entity->getRelations() as $related) {
-                    $relatedItems = is_array($related) ? $related : [$related];
-
-                    foreach ($relatedItems as $relatedEntity) {
-                        if (!$relatedEntity instanceof EntityInterface) continue;
-
-                        if ($this->isOneToMany($entity, $relatedEntity)) {
-                            $this->injectForeignKey($relatedEntity, $entity);
-                            $this->upsert($relatedEntity);
-                        } else {
-                            $this->insertPivot($entity, $relatedEntity);
-                        }
-                    }
-                }
-            }
+            $this->persistEntity($root, $states, $processedPivots, $snapshots);
 
             $this->commit();
         } catch (Throwable $e) {
-            $this->rollback();
+            $rollbackException = null;
+
+            try {
+                if ($this->transactionLevel > $entryTransactionLevel) {
+                    $this->rollback();
+                }
+            } catch (Throwable $rollbackError) {
+                $rollbackException = $rollbackError;
+            } finally {
+                $this->restoreSnapshots($snapshots);
+            }
+
             $code = $e->getCode();
             $normalizedCode = is_numeric($code) ? (int)$code : 0;
-            throw new DatabaseException($e->getMessage(), $normalizedCode, $e);
+            $message = $e->getMessage();
+
+            if ($rollbackException !== null) {
+                $message .= ' Rollback failed: ' . $rollbackException->getMessage();
+            }
+
+            throw new DatabaseException($message, $normalizedCode, $e);
         }
     }
 
@@ -118,35 +129,74 @@ class EntityManager
             throw new RuntimeException('Cannot clear EntityManager while a transaction is active.');
         }
 
-        $this->stored = [];
         $this->transactionLevel = 0;
     }
 
     /**
      * @param EntityInterface $entity
-     * @param array           $seen
+     * @param array<int, string> $states
+     * @param array<string, true> $processedPivots
+     * @param array<string, array{
+     *     entity: EntityInterface,
+     *     property: ReflectionProperty,
+     *     initialized: bool,
+     *     value: mixed
+     * }> $snapshots
      *
-     * @return array|EntityInterface[]
+     * @return void
      */
-    protected function collectEntities(EntityInterface $entity, array &$seen = []): array
-    {
-        $id = spl_object_hash($entity);
-        if (isset($seen[$id])) return [];
+    protected function persistEntity(
+        EntityInterface $entity,
+        array &$states,
+        array &$processedPivots,
+        array &$snapshots
+    ): void {
+        $objectId = spl_object_id($entity);
+        $state = $states[$objectId] ?? null;
 
-        $seen[$id] = $entity;
-        $result = [$entity];
-
-        foreach ($entity->getRelations() as $related) {
-            $relatedItems = is_array($related) ? $related : [$related];
-
-            foreach ($relatedItems as $rel) {
-                if ($rel instanceof EntityInterface) {
-                    $result = array_merge($result, $this->collectEntities($rel, $seen));
-                }
-            }
+        if ($state === 'persisted' || $state === 'visiting') {
+            return;
         }
 
-        return $result;
+        $states[$objectId] = 'visiting';
+        $relations = $this->getRelatedEntities($entity);
+
+        // A to-one relation whose foreign key lives on the current entity must
+        // exist before the current entity can be inserted.
+        foreach ($relations as $relatedEntity) {
+            if (!$this->hasForeignKeyFor($entity, $relatedEntity)) {
+                continue;
+            }
+
+            $this->persistEntity($relatedEntity, $states, $processedPivots, $snapshots);
+            $this->injectForeignKey($entity, $relatedEntity, $snapshots);
+        }
+
+        $this->rememberProperty($entity, $entity->getPrimaryKey(), $snapshots);
+        $this->upsert($entity);
+        $states[$objectId] = 'persisted';
+
+        foreach ($relations as $relatedEntity) {
+            if ($this->hasForeignKeyFor($relatedEntity, $entity)) {
+                $this->injectForeignKey($relatedEntity, $entity, $snapshots);
+                $this->persistEntity($relatedEntity, $states, $processedPivots, $snapshots);
+                continue;
+            }
+
+            if ($this->hasForeignKeyFor($entity, $relatedEntity)) {
+                continue;
+            }
+
+            $this->persistEntity($relatedEntity, $states, $processedPivots, $snapshots);
+
+            $pivotKey = $this->getPivotKey($entity, $relatedEntity);
+            if (isset($processedPivots[$pivotKey])) {
+                continue;
+            }
+
+            $this->insertPivot($entity, $relatedEntity);
+            $processedPivots[$pivotKey] = true;
+        }
     }
 
     /**
@@ -156,33 +206,44 @@ class EntityManager
      */
     protected function upsert(EntityInterface $entity): void
     {
-        $table = $entity->getTableName();
+        $table = $this->quoteIdentifier($entity->getTableName());
         $fields = $entity->getFields();
         $primary = $entity->getPrimaryKey();
         $id = $entity->getId();
+        $quotedFields = [];
+
+        foreach (array_keys($fields) as $field) {
+            $quotedFields[$field] = $this->quoteIdentifier($field);
+        }
 
         if ($id === null) {
-            $columns = implode(', ', array_keys($fields));
+            $columns = implode(', ', $quotedFields);
             $placeholders = implode(', ', array_map(fn($k) => ':' . $k, array_keys($fields)));
             $stmt = $this->pdo->prepare("INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})");
             $stmt->execute($fields);
             $lastId = $this->pdo->lastInsertId();
             $entity->setId(is_numeric($lastId) ? (int) $lastId : $lastId);
         } else {
-            $assignments = implode(', ', array_map(fn($k) => "$k = :$k", array_keys($fields)));
+            $assignments = implode(', ', array_map(
+                fn($k) => "{$quotedFields[$k]} = :{$k}",
+                array_keys($fields)
+            ));
             $fields[$primary] = $id;
-            $stmt = $this->pdo->prepare("UPDATE {$table} SET {$assignments} WHERE {$primary} = :{$primary}");
+            $quotedPrimary = $this->quoteIdentifier($primary);
+            $stmt = $this->pdo->prepare(
+                "UPDATE {$table} SET {$assignments} WHERE {$quotedPrimary} = :{$primary}"
+            );
             $stmt->execute($fields);
         }
     }
 
     /**
-     * @param EntityInterface $parent
      * @param EntityInterface $child
+     * @param EntityInterface $parent
      *
      * @return bool
      */
-    protected function isOneToMany(EntityInterface $parent, EntityInterface $child): bool
+    protected function hasForeignKeyFor(EntityInterface $child, EntityInterface $parent): bool
     {
         $fk = $parent->getTableName(true) . '_id';
         $ref = new \ReflectionClass($child);
@@ -192,16 +253,29 @@ class EntityManager
     /**
      * @param EntityInterface $child
      * @param EntityInterface $parent
+     * @param array<string, array{
+     *     entity: EntityInterface,
+     *     property: ReflectionProperty,
+     *     initialized: bool,
+     *     value: mixed
+     * }> $snapshots
      *
      * @return void
      */
-    protected function injectForeignKey(EntityInterface $child, EntityInterface $parent): void
+    protected function injectForeignKey(
+        EntityInterface $child,
+        EntityInterface $parent,
+        array &$snapshots
+    ): void
     {
         $fk = $parent->getTableName(true) . '_id';
-        if (!$parent->getId()) {
+        if ($parent->getId() === null) {
             throw new \RuntimeException("Cannot inject foreign key: parent entity has no ID.");
         }
-        $child->{$fk} = $parent->getId();
+
+        $this->rememberProperty($child, $fk, $snapshots);
+        $property = (new ReflectionObject($child))->getProperty($fk);
+        $property->setValue($child, $parent->getId());
     }
 
     /**
@@ -212,37 +286,187 @@ class EntityManager
      */
     protected function insertPivot(EntityInterface $a, EntityInterface $b): void
     {
-        $tables = [$a->getTableName(true), $b->getTableName(true)];
-        sort($tables);
-        $pivot = implode('_', $tables);
+        $pivot = $this->quoteIdentifier($this->getPivotTableName($a, $b));
 
-        $aCol = $a->getTableName(true) . '_id';
-        $bCol = $b->getTableName(true) . '_id';
+        $aCol = $this->quoteIdentifier($a->getTableName(true) . '_id');
+        $bCol = $this->quoteIdentifier($b->getTableName(true) . '_id');
+        $aId = $a->getId();
+        $bId = $b->getId();
 
-        $stmt = $this->pdo->prepare("INSERT OR IGNORE INTO {$pivot} ({$aCol}, {$bCol}) VALUES (:a, :b)");
+        if ($aId === null || $bId === null) {
+            throw new RuntimeException('Cannot persist a pivot relation before both entities have IDs.');
+        }
+
+        $stmt = $this->pdo->prepare(
+            "SELECT 1 FROM {$pivot} WHERE {$aCol} = :a AND {$bCol} = :b"
+        );
         $stmt->execute([
-            ':a' => $a->getId(),
-            ':b' => $b->getId(),
+            ':a' => $aId,
+            ':b' => $bId,
+        ]);
+
+        if ($stmt->fetchColumn() !== false) {
+            return;
+        }
+
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO {$pivot} ({$aCol}, {$bCol}) VALUES (:a, :b)"
+        );
+        $stmt->execute([
+            ':a' => $aId,
+            ':b' => $bId,
         ]);
     }
 
     /**
-     * @param EntityInterface $entity
-     *
-     * @return bool
+     * @return array<int, EntityInterface>
      */
-    protected function isStored(EntityInterface $entity): bool
+    private function getRelatedEntities(EntityInterface $entity): array
     {
-        return isset($this->stored[spl_object_hash($entity)]);
+        $entities = [];
+
+        foreach ($entity->getRelations() as $related) {
+            $relatedItems = is_array($related) ? $related : [$related];
+
+            foreach ($relatedItems as $relatedEntity) {
+                if ($relatedEntity instanceof EntityInterface) {
+                    $entities[] = $relatedEntity;
+                }
+            }
+        }
+
+        return $entities;
+    }
+
+    /**
+     * @param EntityInterface $a
+     * @param EntityInterface $b
+     *
+     * @return string
+     */
+    private function getPivotKey(EntityInterface $a, EntityInterface $b): string
+    {
+        $objectIds = [spl_object_id($a), spl_object_id($b)];
+        sort($objectIds);
+
+        return implode(':', $objectIds);
+    }
+
+    private function getPivotTableName(EntityInterface $a, EntityInterface $b): string
+    {
+        $aMappings = $this->getPivotTableMappings($a);
+        if (isset($aMappings[$b::class]) && is_string($aMappings[$b::class])) {
+            return $aMappings[$b::class];
+        }
+
+        $bMappings = $this->getPivotTableMappings($b);
+        if (isset($bMappings[$a::class]) && is_string($bMappings[$a::class])) {
+            return $bMappings[$a::class];
+        }
+
+        $tables = [$a->getTableName(true), $b->getTableName(true)];
+        sort($tables);
+
+        return implode('_', $tables);
+    }
+
+    /**
+     * @return array<class-string<EntityInterface>, string>
+     */
+    private function getPivotTableMappings(EntityInterface $entity): array
+    {
+        $reflection = new ReflectionObject($entity);
+        if (!$reflection->hasProperty('pivotTables')) {
+            return [];
+        }
+
+        $property = $reflection->getProperty('pivotTables');
+        if (!$property->isInitialized($entity)) {
+            return [];
+        }
+
+        $mappings = $property->getValue($entity);
+
+        return is_array($mappings) ? $mappings : [];
     }
 
     /**
      * @param EntityInterface $entity
+     * @param string $propertyName
+     * @param array<string, array{
+     *     entity: EntityInterface,
+     *     property: ReflectionProperty,
+     *     initialized: bool,
+     *     value: mixed
+     * }> $snapshots
      *
      * @return void
      */
-    protected function markStored(EntityInterface $entity): void
+    private function rememberProperty(
+        EntityInterface $entity,
+        string $propertyName,
+        array &$snapshots
+    ): void
     {
-        $this->stored[spl_object_hash($entity)] = true;
+        $reflection = new ReflectionObject($entity);
+        if (!$reflection->hasProperty($propertyName)) {
+            return;
+        }
+
+        $key = spl_object_id($entity) . ':' . $propertyName;
+        if (isset($snapshots[$key])) {
+            return;
+        }
+
+        $property = $reflection->getProperty($propertyName);
+        $initialized = $property->isInitialized($entity);
+        $snapshots[$key] = [
+            'entity' => $entity,
+            'property' => $property,
+            'initialized' => $initialized,
+            'value' => $initialized ? $property->getValue($entity) : null,
+        ];
+    }
+
+    /**
+     * @param array<string, array{
+     *     entity: EntityInterface,
+     *     property: ReflectionProperty,
+     *     initialized: bool,
+     *     value: mixed
+     * }> $snapshots
+     *
+     * @return void
+     */
+    private function restoreSnapshots(array $snapshots): void
+    {
+        foreach (array_reverse($snapshots) as $snapshot) {
+            if ($snapshot['initialized']) {
+                $snapshot['property']->setValue($snapshot['entity'], $snapshot['value']);
+                continue;
+            }
+
+            $propertyName = $snapshot['property']->getName();
+            $unsetProperty = \Closure::bind(
+                function () use ($propertyName): void {
+                    unset($this->{$propertyName});
+                },
+                $snapshot['entity'],
+                $snapshot['entity']
+            );
+            $unsetProperty();
+        }
+    }
+
+    private function quoteIdentifier(string $identifier): string
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier)) {
+            throw new InvalidArgumentException("Invalid identifier: {$identifier}");
+        }
+
+        $driver = strtolower((string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        $quote = $driver === 'mysql' ? '`' : '"';
+
+        return $quote . $identifier . $quote;
     }
 }

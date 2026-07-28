@@ -18,7 +18,7 @@ This plugin adds basic ORM support to NixPHP:
 lightweight, readable, and ideal for small to medium use cases.
 
 It supports nested entity saving (including pivot tables),  
-auto-discovery of related entities, and lazy-loading on read.
+auto-discovery of related entities, and repository-based lazy-loading.
 
 > 🧩 Part of the official NixPHP plugin collection.  
 > Use it if you want structured object handling – but without the complexity of full-stack ORM systems.
@@ -29,9 +29,9 @@ auto-discovery of related entities, and lazy-loading on read.
 
 * ✅ Save any entity using `em()->save($entity)`
 * ✅ Detects and stores relations automatically
-* ✅ Supports `One-to-Many` and `Many-to-Many` out of the box
+* ✅ Supports `Many-to-One`, `One-to-Many`, and `Many-to-Many` out of the box
 * ✅ Uses simple PHP classes, no annotations or metadata
-* ✅ Includes lazy-loading via regular `getX()` methods
+* ✅ Makes repository-based lazy-loading easy to implement in regular `getX()` methods
 * ✅ Comes with a clean `AbstractRepository` for queries
 
 ---
@@ -40,9 +40,9 @@ auto-discovery of related entities, and lazy-loading on read.
 
 ```bash
 composer require nixphp/orm
-````
+```
 
-You also need `nixphp/database` for PDO access.
+`nixphp/database` is installed automatically as a dependency.
 
 ---
 
@@ -97,29 +97,58 @@ return [
 
 ### Define your models
 
-Models extend `AbstractModel` and use the `EntityTrait`.
+Models extend `AbstractModel`, which already implements `EntityInterface` via
+`EntityTrait`.
 
 ```php
+use NixPHP\ORM\Model\AbstractModel;
+use function NixPHP\ORM\repo;
+
 class Product extends AbstractModel
 {
     protected ?int $id = null;
     protected string $name = '';
+    protected ?int $category_id = null;
     protected ?Category $category = null;
     protected array $tags = [];
 
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    public function setCategory(Category $category): void
+    {
+        $this->category = $category;
+    }
+
+    public function addTag(Tag $tag): void
+    {
+        $this->tags[] = $tag;
+    }
+
     public function getTags(): array
     {
-        if ($this->tags === []) {
-            $this->tags = (new TagRepository())->findByPivot(Product::class, $this->id);
+        if ($this->tags === [] && $this->id !== null) {
+            $this->tags = repo(TagRepository::class)
+                ->findByPivot(Product::class, $this->id);
         }
+
         return $this->tags;
     }
 
     public function getCategory(): ?Category
     {
-        if ($this->category === null && $this->category_id) {
-            $this->category = (new CategoryRepository())->findOneBy('id', $this->category_id);
+        if ($this->category === null && $this->category_id !== null) {
+            $this->category = repo(CategoryRepository::class)
+                ->findOneBy('id', $this->category_id);
         }
+
         return $this->category;
     }
 }
@@ -128,13 +157,16 @@ class Product extends AbstractModel
 ### Saving data
 
 ```php
-$category = (new CategoryRepository())->findOrCreateByName('Books');
-$tagA     = (new TagRepository())->findOrCreateByName('Bestseller');
-$tagB     = (new TagRepository())->findOrCreateByName('Limited');
+use function NixPHP\ORM\em;
+use function NixPHP\ORM\repo;
+
+$category = repo(CategoryRepository::class)->findOrCreateBy('name', 'Books');
+$tagA     = repo(TagRepository::class)->findOrCreateBy('name', 'Bestseller');
+$tagB     = repo(TagRepository::class)->findOrCreateBy('name', 'Limited');
 
 $product = new Product();
-$product->name = 'NixPHP for Beginners';
-$product->addCategory($category);
+$product->setName('NixPHP for Beginners');
+$product->setCategory($category);
 $product->addTag($tagA);
 $product->addTag($tagB);
 
@@ -144,14 +176,28 @@ em()->save($product);
 ### Reading data
 
 ```php
-$product = (new ProductRepository())->findOneBy('id', 1);
+use function NixPHP\ORM\repo;
 
-echo $product->name;
-print_r($product->getCategory());
-print_r($product->getTags());
+$product = repo(ProductRepository::class)->findOneBy('id', 1);
+
+if ($product !== null) {
+    echo $product->getName();
+    print_r($product->getCategory());
+    print_r($product->getTags());
+}
 ```
 
-Relations are lazy-loaded automatically when accessed.
+The getters above implement lazy-loading explicitly through repositories.
+When saving, entity-object properties and arrays of entities are discovered
+automatically. A child foreign key follows the `<parent>_id` convention; pivot
+table names are built from the two singular table names in alphabetical order.
+For a custom pivot name, define a public mapping on either entity:
+
+```php
+public array $pivotTables = [
+    Tag::class => 'article_tags',
+];
+```
 
 ---
 
@@ -168,9 +214,9 @@ you can integrate any larger ORM of your choice alongside it.
 
 ## ✅ Requirements
 
-* PHP >= 8.1
-* `nixphp/framework` >= 1.0
-* `nixphp/database`
+* PHP >= 8.3
+* `nixphp/framework` ^0.1.2
+* `nixphp/database` ^0.1.1
 
 ---
 
