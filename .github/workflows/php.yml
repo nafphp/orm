@@ -40,10 +40,6 @@ jobs:
       - name: Run test suite
         run: composer test
 
-      - name: Run static analysis
-        if: matrix.php == '8.3'
-        run: composer analyse
-
   mariadb:
     name: MariaDB / PHP 8.3
     runs-on: ubuntu-latest

@@ -24,4 +24,3 @@ All notable changes to this project are documented in this file.
 - Added regression coverage for repeated saves, required foreign keys, cyclic relation graphs,
   rollback recovery, late foreign-key injection, pivot constraint failures, offset-only queries,
   and duplicate bulk input.
-- Added PHPStan analysis for both production and test code.

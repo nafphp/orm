@@ -79,11 +79,6 @@ abstract class AbstractRepository
     {
         $entity = $this->getEntity();
         $relatedEntity = new $relatedClass();
-        if (!$relatedEntity instanceof EntityInterface) {
-            throw new InvalidArgumentException(
-                "{$relatedClass} must implement " . EntityInterface::class
-            );
-        }
 
         return DatabaseHelper::getPivotTableName(
             $entity,

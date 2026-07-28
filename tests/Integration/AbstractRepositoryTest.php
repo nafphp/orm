@@ -22,9 +22,7 @@ class AbstractRepositoryTest extends NixPHPTestCase
         parent::setUp();
         $this->clearFixtures();
         $repository = repo(PlayerRepository::class);
-        if (!$repository instanceof PlayerRepository) {
-            throw new \RuntimeException('Expected a PlayerRepository instance.');
-        }
+        $this->assertInstanceOf(PlayerRepository::class, $repository);
         $this->playerRepository = $repository;
         $this->seedFixtures();
     }
@@ -59,9 +57,6 @@ class AbstractRepositoryTest extends NixPHPTestCase
     {
         $entity = $this->playerRepository->findOneBy('name', 'Alpha');
         $this->assertInstanceOf(Player::class, $entity);
-        if (!$entity instanceof Player) {
-            $this->fail('Expected a Player entity.');
-        }
         $this->assertSame('Alpha', $entity->getName());
     }
 
@@ -70,9 +65,6 @@ class AbstractRepositoryTest extends NixPHPTestCase
         $players = $this->playerRepository->findByPivot(Team::class, $this->teamId);
         $this->assertCount(1, $players);
         $this->assertInstanceOf(Player::class, $players[0]);
-        if (!$players[0] instanceof Player) {
-            $this->fail('Expected a Player entity.');
-        }
         $this->assertSame('Alpha', $players[0]->getName());
     }
 
@@ -83,9 +75,6 @@ class AbstractRepositoryTest extends NixPHPTestCase
         $result = $this->playerRepository->findOrCreateBy('name', 'Zed');
 
         $this->assertInstanceOf(Player::class, $result);
-        if (!$result instanceof Player) {
-            $this->fail('Expected a Player entity.');
-        }
         $this->assertSame('Zed', $result->getName());
         $count = self::$pdo->prepare('SELECT COUNT(*) FROM players WHERE name = :name');
         $count->execute(['name' => 'Zed']);
