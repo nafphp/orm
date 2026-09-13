@@ -1,4 +1,4 @@
-name: NixPHP ORM Plugin
+name: NAF ORM Plugin
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         php: ["8.3", "8.4", "8.5"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -48,7 +48,7 @@ jobs:
       mariadb:
         image: mariadb:11.4
         env:
-          MARIADB_DATABASE: nixphp_orm_test
+          MARIADB_DATABASE: naf_orm_test
           MARIADB_USER: orm
           MARIADB_PASSWORD: orm
           MARIADB_ROOT_PASSWORD: root
@@ -64,12 +64,12 @@ jobs:
       DB_DRIVER: mysql
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
-      DB_DATABASE: nixphp_orm_test
+      DB_DATABASE: naf_orm_test
       DB_USERNAME: orm
       DB_PASSWORD: orm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 

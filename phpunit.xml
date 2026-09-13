@@ -3,11 +3,12 @@
         colors="true"
         failOnRisky="true"
         failOnWarning="true"
+         failOnDeprecation="true"
         beStrictAboutTestsThatDoNotTestAnything="true"
         displayDetailsOnPhpunitDeprecations="true">
 
     <testsuites>
-        <testsuite name="NixPHP ORM Plugin Test Suite">
+        <testsuite name="NAF ORM Plugin Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
