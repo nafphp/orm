@@ -1,26 +1,26 @@
 <div style="text-align: center;">
 
-![Logo](https://nixphp.github.io/docs/assets/nixphp-logo-small-square.png)
+![NAF](assets/naf-logo-small-square.png)
 
-[![NixPHP ORM Plugin](https://github.com/nixphp/orm/actions/workflows/php.yml/badge.svg)](https://github.com/nixphp/orm/actions/workflows/php.yml)
+[![NAF ORM Plugin](https://github.com/nafphp/orm/actions/workflows/php.yml/badge.svg)](https://github.com/nafphp/orm/actions/workflows/php.yml)
 
 </div>
 
-[← Back to NixPHP](https://github.com/nixphp/framework)
+[← Back to NAF](https://github.com/nafphp/framework)
 
 ---
 
-# nixphp/orm
+# naf/orm
 
-> **Minimalistic object mapper for your NixPHP application.**
+> **Minimalistic object mapper for your NAF application.**
 
-This plugin adds basic ORM support to NixPHP:  
+This plugin adds basic ORM support to NAF:  
 lightweight, readable, and ideal for small to medium use cases.
 
 It supports nested entity saving (including pivot tables),  
 auto-discovery of related entities, and repository-based lazy-loading.
 
-> 🧩 Part of the official NixPHP plugin collection.  
+> 🧩 Part of the official NAF plugin collection.  
 > Use it if you want structured object handling – but without the complexity of full-stack ORM systems.
 
 ---
@@ -39,16 +39,16 @@ auto-discovery of related entities, and repository-based lazy-loading.
 ## 📥 Installation
 
 ```bash
-composer require nixphp/orm
+composer require naf/orm
 ```
 
-`nixphp/database` is installed automatically as a dependency.
+`naf/database` is installed automatically as a dependency.
 
 ---
 
 ## 🛠 Configuration
 
-This plugin uses the shared PDO instance from [`nixphp/database`](https://github.com/nixphp/database).
+This plugin uses the shared PDO instance from [`naf/database`](https://github.com/nafphp/database).
 Make sure your `/app/config.php` contains a working `database` section.
 
 ### Example: MySQL
@@ -101,8 +101,8 @@ Models extend `AbstractModel`, which already implements `EntityInterface` via
 `EntityTrait`.
 
 ```php
-use NixPHP\ORM\Model\AbstractModel;
-use function NixPHP\ORM\repo;
+use Naf\ORM\Model\AbstractModel;
+use function Naf\ORM\repo;
 
 class Product extends AbstractModel
 {
@@ -157,15 +157,15 @@ class Product extends AbstractModel
 ### Saving data
 
 ```php
-use function NixPHP\ORM\em;
-use function NixPHP\ORM\repo;
+use function Naf\ORM\em;
+use function Naf\ORM\repo;
 
 $category = repo(CategoryRepository::class)->findOrCreateBy('name', 'Books');
 $tagA     = repo(TagRepository::class)->findOrCreateBy('name', 'Bestseller');
 $tagB     = repo(TagRepository::class)->findOrCreateBy('name', 'Limited');
 
 $product = new Product();
-$product->setName('NixPHP for Beginners');
+$product->setName('NAF for Beginners');
 $product->setCategory($category);
 $product->addTag($tagA);
 $product->addTag($tagB);
@@ -176,7 +176,7 @@ em()->save($product);
 ### Reading data
 
 ```php
-use function NixPHP\ORM\repo;
+use function Naf\ORM\repo;
 
 $product = repo(ProductRepository::class)->findOneBy('id', 1);
 
@@ -215,8 +215,8 @@ you can integrate any larger ORM of your choice alongside it.
 ## ✅ Requirements
 
 * PHP >= 8.3
-* `nixphp/framework` ^0.1.2
-* `nixphp/database` ^0.1.1
+* `naf/framework` ^0.1.2
+* `naf/database` ^0.1.1
 
 ---
 

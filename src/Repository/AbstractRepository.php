@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Repository;
+namespace Naf\ORM\Repository;
 
 use Exception;
 use InvalidArgumentException;
-use NixPHP\ORM\Core\EntityInterface;
-use NixPHP\ORM\Core\EntityManager;
-use NixPHP\ORM\Exception\DatabaseException;
-use NixPHP\ORM\Support\DatabaseHelper;
-use NixPHP\Decorators\AutoResolvingContainer;
+use Naf\ORM\Core\EntityInterface;
+use Naf\ORM\Core\EntityManager;
+use Naf\ORM\Exception\DatabaseException;
+use Naf\ORM\Support\DatabaseHelper;
+use Naf\Decorators\AutoResolvingContainer;
 use PDO;
 use RuntimeException;
-use function NixPHP\app;
+use function Naf\app;
 
 abstract class AbstractRepository
 {

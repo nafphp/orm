@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Core;
+namespace Naf\ORM\Core;
 
 use ReflectionObject;
 

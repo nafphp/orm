@@ -6,9 +6,9 @@ namespace Tests;
 
 use PDO;
 use PHPUnit\Framework\TestCase;
-use function NixPHP\Database\database;
+use function Naf\Database\database;
 
-class NixPHPTestCase extends TestCase
+class NafTestCase extends TestCase
 {
     protected static PDO $pdo;
 

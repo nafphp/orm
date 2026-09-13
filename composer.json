@@ -1,9 +1,9 @@
 {
-  "name": "nixphp/orm",
-  "description": "NixPHP ORM Plugin.",
+  "name": "naf/orm",
+  "description": "NAF ORM Plugin.",
   "minimum-stability": "stable",
   "license": "MIT",
-  "type": "nixphp-plugin",
+  "type": "naf-plugin",
   "authors": [
     {
       "name": "Flo Knapp",
@@ -12,7 +12,7 @@
   ],
   "autoload": {
     "psr-4": {
-      "NixPHP\\ORM\\": "src/"
+      "Naf\\ORM\\": "src/"
     }
   },
   "autoload-dev": {
@@ -23,8 +23,8 @@
   "require": {
     "php": ">=8.3",
     "ext-pdo": "*",
-    "nixphp/framework": "^v0.1.2",
-    "nixphp/database": "^v0.1.1"
+    "naf/framework": "^0.2",
+    "naf/database": "^0.2"
   },
   "require-dev": {
     "phpunit/phpunit": "^12.1",

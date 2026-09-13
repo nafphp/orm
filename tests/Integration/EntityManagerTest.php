@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use NixPHP\ORM\Exception\DatabaseException;
+use Naf\ORM\Exception\DatabaseException;
 use RuntimeException;
 use Tests\Fixtures\Milestone;
 use Tests\Fixtures\Player;
@@ -12,10 +12,10 @@ use Tests\Fixtures\Portfolio;
 use Tests\Fixtures\Project;
 use Tests\Fixtures\Task;
 use Tests\Fixtures\Team;
-use Tests\NixPHPTestCase;
-use function NixPHP\ORM\em;
+use Tests\NafTestCase;
+use function Naf\ORM\em;
 
-class EntityManagerTest extends NixPHPTestCase
+class EntityManagerTest extends NafTestCase
 {
     protected function setUp(): void
     {

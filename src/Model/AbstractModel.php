@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Model;
+namespace Naf\ORM\Model;
 
-use NixPHP\ORM\Core\EntityInterface;
-use NixPHP\ORM\Core\EntityTrait;
+use Naf\ORM\Core\EntityInterface;
+use Naf\ORM\Core\EntityTrait;
 
 abstract class AbstractModel implements EntityInterface
 {

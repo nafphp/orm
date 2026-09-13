@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use NixPHP\Core\Container;
-use NixPHP\ORM\Core\EntityManager;
-use NixPHP\ORM\Repository\RepositoryFactory;
-use NixPHP\Database\Core\Database;
-use function NixPHP\app;
+use Naf\Core\Container;
+use Naf\ORM\Core\EntityManager;
+use Naf\ORM\Repository\RepositoryFactory;
+use Naf\Database\Core\Database;
+use function Naf\app;
 
 app()->container()->set(
     EntityManager::class,

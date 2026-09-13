@@ -6,7 +6,7 @@ namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Tests\Fixtures\DummyRepository;
-use function NixPHP\ORM\repo;
+use function Naf\ORM\repo;
 
 class RepoHelperTest extends TestCase
 {

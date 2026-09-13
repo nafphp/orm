@@ -1,11 +1,11 @@
 <?php
 
-namespace NixPHP\ORM;
+namespace Naf\ORM;
 
-use NixPHP\ORM\Core\EntityManager;
-use NixPHP\ORM\Repository\AbstractRepository;
-use NixPHP\ORM\Repository\RepositoryFactory;
-use function NixPHP\app;
+use Naf\ORM\Core\EntityManager;
+use Naf\ORM\Repository\AbstractRepository;
+use Naf\ORM\Repository\RepositoryFactory;
+use function Naf\app;
 
 function em(): EntityManager
 {

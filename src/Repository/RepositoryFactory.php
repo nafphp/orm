@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Repository;
+namespace Naf\ORM\Repository;
 
 use InvalidArgumentException;
-use NixPHP\Decorators\AutoResolvingContainer;
-use NixPHP\ORM\Core\EntityManager;
+use Naf\Decorators\AutoResolvingContainer;
+use Naf\ORM\Core\EntityManager;
 use PDO;
 use RuntimeException;
-use function NixPHP\app;
+use function Naf\app;
 
 class RepositoryFactory
 {

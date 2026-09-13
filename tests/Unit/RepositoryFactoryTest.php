@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use InvalidArgumentException;
-use NixPHP\ORM\Repository\RepositoryFactory;
+use Naf\ORM\Repository\RepositoryFactory;
 use Tests\Fixtures\DummyRepository;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
+use Tests\NafTestCase;
+use function Naf\app;
 
-class RepositoryFactoryTest extends NixPHPTestCase
+class RepositoryFactoryTest extends NafTestCase
 {
     private RepositoryFactory $factory;
 

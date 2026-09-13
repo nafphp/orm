@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Support;
+namespace Naf\ORM\Support;
 
 use InvalidArgumentException;
-use NixPHP\ORM\Core\EntityInterface;
+use Naf\ORM\Core\EntityInterface;
 use PDO;
 use ReflectionObject;
 

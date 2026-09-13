@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Core;
+namespace Naf\ORM\Core;
 
-use NixPHP\ORM\Exception\DatabaseException;
-use NixPHP\ORM\Support\DatabaseHelper;
+use Naf\ORM\Exception\DatabaseException;
+use Naf\ORM\Support\DatabaseHelper;
 use PDO;
 use PDOException;
 use ReflectionObject;

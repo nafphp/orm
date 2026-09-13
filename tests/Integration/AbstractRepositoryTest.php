@@ -7,10 +7,10 @@ namespace Tests\Integration;
 use Tests\Fixtures\Player;
 use Tests\Fixtures\PlayerRepository;
 use Tests\Fixtures\Team;
-use Tests\NixPHPTestCase;
-use function NixPHP\ORM\repo;
+use Tests\NafTestCase;
+use function Naf\ORM\repo;
 
-class AbstractRepositoryTest extends NixPHPTestCase
+class AbstractRepositoryTest extends NafTestCase
 {
     private PlayerRepository $playerRepository;
 

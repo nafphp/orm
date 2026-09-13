@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\ORM\Exception;
+namespace Naf\ORM\Exception;
 
 use Exception;
 

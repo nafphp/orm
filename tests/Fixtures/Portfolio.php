@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
-use NixPHP\ORM\Model\AbstractModel;
+use Naf\ORM\Model\AbstractModel;
 
 class Portfolio extends AbstractModel
 {
