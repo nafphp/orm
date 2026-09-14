@@ -16,6 +16,8 @@ use Throwable;
 class EntityManager
 {
     private int $transactionLevel = 0;
+    /** @var list<string|null> Null denotes the transaction owned by this manager. */
+    private array $transactionFrames = [];
 
     /**
      * @param PDO $pdo
@@ -29,55 +31,45 @@ class EntityManager
      */
     public function begin(): void
     {
-        if ($this->transactionLevel === 0) {
+        $savepoint = null;
+        if (!$this->pdo->inTransaction()) {
+            if ($this->transactionLevel !== 0) {
+                throw new RuntimeException('The transaction was ended outside this EntityManager.');
+            }
             $this->pdo->beginTransaction();
         } else {
-            $this->pdo->exec("SAVEPOINT LEVEL{$this->transactionLevel}");
+            $savepoint = 'NAF_EM_' . spl_object_id($this) . '_' . $this->transactionLevel;
+            $this->pdo->exec('SAVEPOINT ' . $savepoint);
         }
-
-        $this->transactionLevel++;
+        $this->transactionFrames[] = $savepoint;
+        ++$this->transactionLevel;
     }
 
-    /**
-     * @return void
-     */
     public function commit(): void
     {
         if ($this->transactionLevel === 0) {
             throw new RuntimeException('Cannot commit without an active transaction.');
         }
-
-        $targetLevel = $this->transactionLevel - 1;
-
-        if ($targetLevel === 0) {
-            $this->pdo->commit();
-        } else {
-            $this->pdo->exec("RELEASE SAVEPOINT LEVEL{$targetLevel}");
-        }
-
-        $this->transactionLevel = $targetLevel;
+        $savepoint = $this->transactionFrames[$this->transactionLevel - 1];
+        if ($savepoint === null) $this->pdo->commit();
+        else $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        array_pop($this->transactionFrames);
+        --$this->transactionLevel;
     }
 
-    /**
-     * @return void
-     */
     public function rollback(): void
     {
         if ($this->transactionLevel === 0) {
             throw new RuntimeException('Cannot roll back without an active transaction.');
         }
-
-        $targetLevel = $this->transactionLevel - 1;
-
-        if ($targetLevel === 0) {
-            $this->pdo->rollBack();
-        } else {
-            $savepoint = "LEVEL{$targetLevel}";
-            $this->pdo->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
-            $this->pdo->exec("RELEASE SAVEPOINT {$savepoint}");
+        $savepoint = $this->transactionFrames[$this->transactionLevel - 1];
+        if ($savepoint === null) $this->pdo->rollBack();
+        else {
+            $this->pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+            $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
         }
-
-        $this->transactionLevel = $targetLevel;
+        array_pop($this->transactionFrames);
+        --$this->transactionLevel;
     }
 
     /**

@@ -58,8 +58,7 @@ abstract class AbstractRepository
     {
         $entity = $this->getEntity();
 
-        $table = $entity->table
-            ?? strtolower(basename(str_replace('\\', '/', $this->getEntityClass()))) . 's';
+        $table = $entity->getTableName();
 
         if ($singular && str_ends_with($table, 's')) {
             return substr($table, 0, -1); // naive Singularform

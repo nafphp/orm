@@ -40,3 +40,10 @@ composer require naf/orm
 ## License
 
 MIT. Part of [NAF](https://github.com/nafphp/framework).
+
+
+## Unreleased Nafinity integration candidate
+
+Target branch: `v0.2.2-rc`. This behavior is not a published release yet.
+
+Entity persistence and repositories both honor getTableName(bool $singular = false). EntityManager commits or rolls back only its own outer transaction; caller-owned and nested work uses savepoints. An external transaction therefore remains open after an application service completes.
