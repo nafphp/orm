@@ -26,8 +26,31 @@ final class NamedRecordRepository extends AbstractRepository
         return NamedRecord::class;
     }
 }
+final class LegacyNamedRecord extends AbstractModel
+{
+    public string $table = 'legacy_named_records';
+    protected string $value = '';
+}
+final class LegacyNamedRecordRepository extends AbstractRepository
+{
+    protected function getEntityClass(): string
+    {
+        return LegacyNamedRecord::class;
+    }
+}
 final class TableContractTest extends TestCase
 {
+    public function testExistingPublicTableMappingRemainsUsable(): void
+    {
+        $pdo = new PDO('sqlite::memory:', options: [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+        $pdo->exec('CREATE TABLE legacy_named_records(id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
+        $pdo->exec("INSERT INTO legacy_named_records VALUES(1, 'legacy')");
+        $repository = new LegacyNamedRecordRepository($pdo, new EntityManager($pdo));
+        $record = $repository->findOneBy('value', 'legacy');
+        self::assertInstanceOf(LegacyNamedRecord::class, $record);
+        self::assertSame(1, $record->getId());
+    }
+
     public function testPersistenceAndRepositoryHonorTheSameExplicitTableName(): void
     {
         $pdo = new PDO('sqlite::memory:', null, null, [

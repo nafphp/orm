@@ -46,4 +46,4 @@ MIT. Part of [NAF](https://github.com/nafphp/framework).
 
 Target branch: `v0.2.2-rc`. This behavior is not a published release yet.
 
-Entity persistence and repositories both honor getTableName(bool $singular = false). EntityManager commits or rolls back only its own outer transaction; caller-owned and nested work uses savepoints. An external transaction therefore remains open after an application service completes.
+Entity persistence and repositories both honor getTableName(bool $singular = false). Repositories retain the existing public `$table` override for compatibility; use `getTableName()` for a shared persistence/query mapping in new models. EntityManager commits or rolls back only its own outer transaction; caller-owned and nested work uses savepoints. An external transaction therefore remains open after an application service completes.
