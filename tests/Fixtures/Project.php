@@ -8,8 +8,8 @@ use Naf\ORM\Model\AbstractModel;
 
 class Project extends AbstractModel
 {
-    protected ?int $id = null;
-    protected string $name = '';
+    protected ?int $id           = null;
+    protected string $name       = '';
     protected ?int $portfolio_id = null;
 
     /**

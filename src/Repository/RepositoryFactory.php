@@ -9,6 +9,7 @@ use Naf\Decorators\AutoResolvingContainer;
 use Naf\ORM\Core\EntityManager;
 use PDO;
 use RuntimeException;
+
 use function Naf\app;
 
 class RepositoryFactory
@@ -22,7 +23,7 @@ class RepositoryFactory
 
     public function __construct(
         protected PDO $pdo,
-        EntityManager $entityManager
+        EntityManager $entityManager,
     ) {
         $this->entityManager = $entityManager;
     }

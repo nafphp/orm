@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Tests\Fixtures;
 
 use Naf\ORM\Model\AbstractModel;
-use Tests\Fixtures\Player;
 
 class Team extends AbstractModel
 {
-    protected ?int $id = null;
-    protected string $name = '';
+    protected ?int $id       = null;
+    protected string $name   = '';
     protected array $players = [];
 
     public function getName(): string

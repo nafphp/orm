@@ -6,10 +6,10 @@ namespace Naf\ORM\Model;
 
 use Naf\ORM\Core\EntityInterface;
 use Naf\ORM\Core\EntityTrait;
+use ReflectionObject;
 
 abstract class AbstractModel implements EntityInterface
 {
-
     use EntityTrait;
 
     protected ?int $id;
@@ -25,11 +25,10 @@ abstract class AbstractModel implements EntityInterface
     {
         $this->id = $data['id'] ?? null;
         foreach ($data as $key => $value) {
-            $ref = new \ReflectionObject($this);
+            $ref = new ReflectionObject($this);
             if ($ref->hasProperty($key)) {
                 $this->$key = $value;
             }
         }
     }
-
 }

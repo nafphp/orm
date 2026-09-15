@@ -6,8 +6,10 @@ namespace Tests\Unit;
 
 use InvalidArgumentException;
 use Naf\ORM\Repository\RepositoryFactory;
+use stdClass;
 use Tests\Fixtures\DummyRepository;
 use Tests\NafTestCase;
+
 use function Naf\app;
 
 class RepositoryFactoryTest extends NafTestCase
@@ -28,7 +30,7 @@ class RepositoryFactoryTest extends NafTestCase
 
     public function testCreateCachesInstances(): void
     {
-        $first = $this->factory->create(DummyRepository::class);
+        $first  = $this->factory->create(DummyRepository::class);
         $second = $this->factory->create(DummyRepository::class);
         $this->assertSame($first, $second);
     }
@@ -36,7 +38,7 @@ class RepositoryFactoryTest extends NafTestCase
     public function testCreateRejectsNonRepositoryClass(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->factory->create(\stdClass::class);
+        $this->factory->create(stdClass::class);
     }
 
     public function testCreateRejectsMissingClass(): void

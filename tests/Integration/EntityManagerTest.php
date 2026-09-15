@@ -13,6 +13,7 @@ use Tests\Fixtures\Project;
 use Tests\Fixtures\Task;
 use Tests\Fixtures\Team;
 use Tests\NafTestCase;
+
 use function Naf\ORM\em;
 
 class EntityManagerTest extends NafTestCase
@@ -26,7 +27,7 @@ class EntityManagerTest extends NafTestCase
     public function testSavePersistsEntitiesAndPivot(): void
     {
         $player = new Player(['name' => 'Walker', 'age' => 28]);
-        $team = new Team(['name' => 'Striders']);
+        $team   = new Team(['name' => 'Striders']);
         $player->addTeam($team);
         $team->addPlayer($player);
 
@@ -38,14 +39,14 @@ class EntityManagerTest extends NafTestCase
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM teams')->fetchColumn());
         $this->assertSame(
             1,
-            (int) self::$pdo->query('SELECT COUNT(*) FROM player_team_links')->fetchColumn()
+            (int) self::$pdo->query('SELECT COUNT(*) FROM player_team_links')->fetchColumn(),
         );
     }
 
     public function testSavingTwiceDoesNotDuplicatePivot(): void
     {
         $player = new Player(['name' => 'Walker', 'age' => 28]);
-        $team = new Team(['name' => 'Striders']);
+        $team   = new Team(['name' => 'Striders']);
         $player->addTeam($team);
         $team->addPlayer($player);
 
@@ -56,7 +57,7 @@ class EntityManagerTest extends NafTestCase
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM players')->fetchColumn());
         $this->assertSame(
             1,
-            (int) self::$pdo->query('SELECT COUNT(*) FROM player_team_links')->fetchColumn()
+            (int) self::$pdo->query('SELECT COUNT(*) FROM player_team_links')->fetchColumn(),
         );
         $this->assertSame(1, (int) self::$pdo->query('SELECT COUNT(*) FROM teams')->fetchColumn());
     }
@@ -64,7 +65,7 @@ class EntityManagerTest extends NafTestCase
     public function testPivotWriteDoesNotIgnoreForeignKeyViolation(): void
     {
         $player = new Player(['id' => 999_999, 'name' => 'Missing', 'age' => 28]);
-        $team = new Team(['name' => 'Existing']);
+        $team   = new Team(['name' => 'Existing']);
         $player->addTeam($team);
         $team->addPlayer($player);
 
@@ -89,7 +90,7 @@ class EntityManagerTest extends NafTestCase
     public function testSavePersistsOneToManyWithRequiredForeignKey(): void
     {
         $project = new Project(['name' => 'Release']);
-        $task = new Task(['title' => 'Review']);
+        $task    = new Task(['title' => 'Review']);
         $project->addTask($task);
 
         em()->save($project);
@@ -104,7 +105,7 @@ class EntityManagerTest extends NafTestCase
     public function testSavePersistsManyToOneWhenChildIsTheRoot(): void
     {
         $project = new Project(['name' => 'Release']);
-        $task = new Task(['title' => 'Review']);
+        $task    = new Task(['title' => 'Review']);
         $project->addTask($task);
 
         em()->save($task);
@@ -119,7 +120,7 @@ class EntityManagerTest extends NafTestCase
     public function testInjectedForeignKeyIsFlushedForAlreadyPersistedEntity(): void
     {
         $portfolio = new Portfolio(['name' => 'Roadmap']);
-        $project = new Project(['name' => 'ORM']);
+        $project   = new Project(['name' => 'ORM']);
         $milestone = new Milestone(['title' => 'Release']);
 
         $portfolio->addMilestone($milestone);
@@ -129,7 +130,7 @@ class EntityManagerTest extends NafTestCase
         em()->save($portfolio);
 
         $stmt = self::$pdo->prepare(
-            'SELECT portfolio_id, project_id FROM milestones WHERE id = :id'
+            'SELECT portfolio_id, project_id FROM milestones WHERE id = :id',
         );
         $stmt->execute(['id' => $milestone->getId()]);
         $row = $stmt->fetch();
@@ -143,8 +144,8 @@ class EntityManagerTest extends NafTestCase
 
     public function testFailedSaveRestoresIdsAndCanBeRetried(): void
     {
-        $project = new Project(['name' => 'Release']);
-        $firstTask = new Task(['title' => 'Duplicate']);
+        $project    = new Project(['name' => 'Release']);
+        $firstTask  = new Task(['title' => 'Duplicate']);
         $secondTask = new Task(['title' => 'Duplicate']);
         $project->addTask($firstTask);
         $project->addTask($secondTask);
@@ -160,11 +161,11 @@ class EntityManagerTest extends NafTestCase
             $this->assertNull($secondTask->getProjectId());
             $this->assertSame(
                 0,
-                (int) self::$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn()
+                (int) self::$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn(),
             );
             $this->assertSame(
                 0,
-                (int) self::$pdo->query('SELECT COUNT(*) FROM tasks')->fetchColumn()
+                (int) self::$pdo->query('SELECT COUNT(*) FROM tasks')->fetchColumn(),
             );
         }
 
@@ -180,7 +181,7 @@ class EntityManagerTest extends NafTestCase
 
     public function testSaveUsesSavepointInsideExistingTransaction(): void
     {
-        $manager = em();
+        $manager                = em();
         $outerTransactionActive = false;
 
         try {
@@ -194,7 +195,7 @@ class EntityManagerTest extends NafTestCase
             $this->assertSame(
                 1,
                 (int) self::$pdo->query("SELECT COUNT(*) FROM players WHERE name = 'Nested'")
-                    ->fetchColumn()
+                    ->fetchColumn(),
             );
 
             $manager->commit();
@@ -210,7 +211,7 @@ class EntityManagerTest extends NafTestCase
 
     public function testFailedNestedSaveKeepsOuterTransactionActive(): void
     {
-        $manager = em();
+        $manager                = em();
         $outerTransactionActive = false;
 
         try {
@@ -232,11 +233,11 @@ class EntityManagerTest extends NafTestCase
                 $this->assertSame(
                     1,
                     (int) self::$pdo->query("SELECT COUNT(*) FROM teams WHERE name = 'Outer'")
-                        ->fetchColumn()
+                        ->fetchColumn(),
                 );
                 $this->assertSame(
                     0,
-                    (int) self::$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn()
+                    (int) self::$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn(),
                 );
             }
 
@@ -251,7 +252,7 @@ class EntityManagerTest extends NafTestCase
         $this->assertSame(
             1,
             (int) self::$pdo->query("SELECT COUNT(*) FROM teams WHERE name = 'Outer'")
-                ->fetchColumn()
+                ->fetchColumn(),
         );
     }
 

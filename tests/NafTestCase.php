@@ -6,6 +6,7 @@ namespace Tests;
 
 use PDO;
 use PHPUnit\Framework\TestCase;
+
 use function Naf\Database\database;
 
 class NafTestCase extends TestCase
@@ -21,13 +22,13 @@ class NafTestCase extends TestCase
 
     protected static function rebuildSchema(): void
     {
-        $pdo = self::$pdo;
-        $driver = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        $pdo      = self::$pdo;
+        $driver   = strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
         $idColumn = $driver === 'mysql'
             ? 'BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY'
             : 'INTEGER PRIMARY KEY AUTOINCREMENT';
         $foreignIdColumn = $driver === 'mysql' ? 'BIGINT UNSIGNED' : 'INTEGER';
-        $textColumn = $driver === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+        $textColumn      = $driver === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
 
         if ($driver === 'sqlite') {
             $pdo->exec('PRAGMA foreign_keys = ON');
@@ -46,14 +47,14 @@ class NafTestCase extends TestCase
                 id {$idColumn},
                 name {$textColumn} NOT NULL,
                 age INTEGER NOT NULL
-            )"
+            )",
         );
 
         $pdo->exec(
             "CREATE TABLE teams (
                 id {$idColumn},
                 name {$textColumn} NOT NULL
-            )"
+            )",
         );
 
         $pdo->exec(
@@ -63,7 +64,7 @@ class NafTestCase extends TestCase
                 UNIQUE(player_id, team_id),
                 FOREIGN KEY (player_id) REFERENCES players(id),
                 FOREIGN KEY (team_id) REFERENCES teams(id)
-            )"
+            )",
         );
 
         $pdo->exec(
@@ -71,7 +72,7 @@ class NafTestCase extends TestCase
                 id {$idColumn},
                 name {$textColumn} NOT NULL,
                 portfolio_id INTEGER NULL
-            )"
+            )",
         );
 
         $pdo->exec(
@@ -79,14 +80,14 @@ class NafTestCase extends TestCase
                 id {$idColumn},
                 title {$textColumn} NOT NULL UNIQUE,
                 project_id INTEGER NOT NULL
-            )"
+            )",
         );
 
         $pdo->exec(
             "CREATE TABLE portfolios (
                 id {$idColumn},
                 name {$textColumn} NOT NULL
-            )"
+            )",
         );
 
         $pdo->exec(
@@ -95,7 +96,7 @@ class NafTestCase extends TestCase
                 title {$textColumn} NOT NULL,
                 portfolio_id INTEGER NULL,
                 project_id INTEGER NULL
-            )"
+            )",
         );
     }
 

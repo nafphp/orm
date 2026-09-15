@@ -5,6 +5,7 @@ namespace Naf\ORM;
 use Naf\ORM\Core\EntityManager;
 use Naf\ORM\Repository\AbstractRepository;
 use Naf\ORM\Repository\RepositoryFactory;
+
 use function Naf\app;
 
 function em(): EntityManager

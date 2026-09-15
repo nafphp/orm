@@ -28,7 +28,7 @@ final class NamedRecordRepository extends AbstractRepository
 }
 final class LegacyNamedRecord extends AbstractModel
 {
-    public string $table = 'legacy_named_records';
+    public string $table    = 'legacy_named_records';
     protected string $value = '';
 }
 final class LegacyNamedRecordRepository extends AbstractRepository
@@ -46,7 +46,7 @@ final class TableContractTest extends TestCase
         $pdo->exec('CREATE TABLE legacy_named_records(id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
         $pdo->exec("INSERT INTO legacy_named_records VALUES(1, 'legacy')");
         $repository = new LegacyNamedRecordRepository($pdo, new EntityManager($pdo));
-        $record = $repository->findOneBy('value', 'legacy');
+        $record     = $repository->findOneBy('value', 'legacy');
         self::assertInstanceOf(LegacyNamedRecord::class, $record);
         self::assertSame(1, $record->getId());
     }
