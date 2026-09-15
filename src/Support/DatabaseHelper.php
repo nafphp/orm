@@ -36,7 +36,7 @@ final class DatabaseHelper
         EntityInterface $a,
         EntityInterface $b,
         string $aTable,
-        string $bTable
+        string $bTable,
     ): string {
         $aMappings = self::getPivotTableMappings($a);
         if (isset($aMappings[$b::class])) {

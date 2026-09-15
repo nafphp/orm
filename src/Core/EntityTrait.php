@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Naf\ORM\Core;
 
 use ReflectionObject;
+use ReflectionProperty;
 
 trait EntityTrait
 {
@@ -22,6 +23,7 @@ trait EntityTrait
     public function getId(): int|string|null
     {
         $property = $this->getPrimaryKey();
+
         return $this->{$property} ?? null;
     }
 
@@ -32,7 +34,7 @@ trait EntityTrait
      */
     public function setId(int|string $id): void
     {
-        $property = $this->getPrimaryKey();
+        $property          = $this->getPrimaryKey();
         $this->{$property} = $id;
     }
 
@@ -47,6 +49,7 @@ trait EntityTrait
         if ($singular) {
             return $result;
         }
+
         return $result . 's';
     }
 
@@ -56,12 +59,14 @@ trait EntityTrait
     public function getFields(): array
     {
         $reflection = new ReflectionObject($this);
-        $fields = [];
+        $fields     = [];
 
-        foreach ($reflection->getProperties(\ReflectionProperty::IS_PROTECTED) as $prop) {
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PROTECTED) as $prop) {
             $name = $prop->getName();
 
-            if ($name === $this->getPrimaryKey()) continue;
+            if ($name === $this->getPrimaryKey()) {
+                continue;
+            }
 
             $value = $prop->getValue($this);
 
@@ -79,7 +84,7 @@ trait EntityTrait
     public function getRelations(): array
     {
         $reflection = new ReflectionObject($this);
-        $relations = [];
+        $relations  = [];
 
         foreach ($reflection->getProperties() as $prop) {
             $value = $prop->getValue($this);
@@ -101,7 +106,9 @@ trait EntityTrait
      */
     private function isArrayOfEntities(mixed $value): bool
     {
-        if (!is_array($value) || empty($value)) return false;
+        if (!is_array($value) || empty($value)) {
+            return false;
+        }
 
         foreach ($value as $v) {
             if (!$v instanceof EntityInterface || $this->isAbstract($v)) {

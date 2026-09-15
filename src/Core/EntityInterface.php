@@ -11,7 +11,6 @@ interface EntityInterface
      */
     public function getPrimaryKey(): string;
 
-
     /**
      * @return array
      */

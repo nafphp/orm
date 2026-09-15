@@ -8,6 +8,7 @@ use Tests\Fixtures\Player;
 use Tests\Fixtures\PlayerRepository;
 use Tests\Fixtures\Team;
 use Tests\NafTestCase;
+
 use function Naf\ORM\repo;
 
 class AbstractRepositoryTest extends NafTestCase
@@ -46,7 +47,7 @@ class AbstractRepositoryTest extends NafTestCase
         $matches = $this->playerRepository->findBy(
             [],
             orderBy: ['id' => 'ASC'],
-            offset: 1
+            offset: 1,
         );
 
         $this->assertCount(1, $matches);
@@ -83,7 +84,7 @@ class AbstractRepositoryTest extends NafTestCase
 
     public function testFindOrCreateManyByCreatesAndReturnsEntities(): void
     {
-        $values = ['Alpha', 'Zed'];
+        $values  = ['Alpha', 'Zed'];
         $results = $this->playerRepository->findOrCreateManyBy('name', $values);
 
         $this->assertCount(2, $results);
@@ -104,7 +105,7 @@ class AbstractRepositoryTest extends NafTestCase
 
     private function seedFixtures(): void
     {
-        $this->teamId = $this->insertTeam('Red');
+        $this->teamId        = $this->insertTeam('Red');
         $this->alphaPlayerId = $this->insertPlayer('Alpha', 24);
         $this->insertPlayer('Beta', 30);
         $this->insertPivot($this->alphaPlayerId, $this->teamId);
@@ -114,6 +115,7 @@ class AbstractRepositoryTest extends NafTestCase
     {
         $stmt = self::$pdo->prepare('INSERT INTO players (name, age) VALUES (:name, :age)');
         $stmt->execute(['name' => $name, 'age' => $age]);
+
         return (int) self::$pdo->lastInsertId();
     }
 
@@ -121,13 +123,14 @@ class AbstractRepositoryTest extends NafTestCase
     {
         $stmt = self::$pdo->prepare('INSERT INTO teams (name) VALUES (:name)');
         $stmt->execute(['name' => $name]);
+
         return (int) self::$pdo->lastInsertId();
     }
 
     private function insertPivot(int $playerId, int $teamId): void
     {
         $stmt = self::$pdo->prepare(
-            'INSERT INTO player_team_links (player_id, team_id) VALUES (:player, :team)'
+            'INSERT INTO player_team_links (player_id, team_id) VALUES (:player, :team)',
         );
         $stmt->execute(['player' => $playerId, 'team' => $teamId]);
     }

@@ -14,7 +14,7 @@ class EntityTraitTest extends TestCase
     {
         $player = new Player([
             'name' => 'Scout',
-            'age' => 7,
+            'age'  => 7,
         ]);
 
         $player->addTeam(new Team(['name' => 'Red']));
@@ -23,7 +23,7 @@ class EntityTraitTest extends TestCase
 
         $this->assertSame([
             'name' => 'Scout',
-            'age' => 7,
+            'age'  => 7,
         ], $fields);
     }
 
@@ -31,7 +31,7 @@ class EntityTraitTest extends TestCase
     {
         $player = new Player([
             'name' => 'Scout',
-            'age' => 7,
+            'age'  => 7,
         ]);
 
         $team = new Team(['name' => 'Red']);
@@ -59,7 +59,7 @@ class EntityTraitTest extends TestCase
         try {
             $player = new Player([
                 'name' => 'Scout',
-                'age' => 7,
+                'age'  => 7,
             ]);
             $player->addTeam(new Team(['name' => 'Red']));
 

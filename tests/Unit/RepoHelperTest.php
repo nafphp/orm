@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Tests\Fixtures\DummyRepository;
+
 use function Naf\ORM\repo;
 
 class RepoHelperTest extends TestCase
@@ -18,7 +19,7 @@ class RepoHelperTest extends TestCase
 
     public function testRepoReturnsSameInstance(): void
     {
-        $first = repo(DummyRepository::class);
+        $first  = repo(DummyRepository::class);
         $second = repo(DummyRepository::class);
         $this->assertSame($first, $second);
     }
