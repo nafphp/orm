@@ -6,13 +6,14 @@ namespace Naf\ORM\Repository;
 
 use Exception;
 use InvalidArgumentException;
+use Naf\Decorators\AutoResolvingContainer;
 use Naf\ORM\Core\EntityInterface;
 use Naf\ORM\Core\EntityManager;
 use Naf\ORM\Exception\DatabaseException;
 use Naf\ORM\Support\DatabaseHelper;
-use Naf\Decorators\AutoResolvingContainer;
 use PDO;
 use RuntimeException;
+
 use function Naf\app;
 
 abstract class AbstractRepository
@@ -24,10 +25,8 @@ abstract class AbstractRepository
 
     private array $columnWhitelistCache = [];
 
-    public function __construct(
-        protected PDO $pdo,
-        protected EntityManager $entityManager
-    ) {
+    public function __construct(protected PDO $pdo, protected EntityManager $entityManager)
+    {
     }
 
     /**
@@ -40,9 +39,9 @@ abstract class AbstractRepository
      */
     protected function getEntity(): EntityInterface
     {
-        $class = $this->getEntityClass();
+        $class     = $this->getEntityClass();
         $container = app()->container();
-        if (!$container instanceof AutoResolvingContainer) {
+        if (!($container instanceof AutoResolvingContainer)) {
             throw new RuntimeException('ORM repositories require an auto-resolving container.');
         }
 
@@ -58,8 +57,7 @@ abstract class AbstractRepository
     {
         $entity = $this->getEntity();
 
-        $table = $entity->table
-            ?? strtolower(basename(str_replace('\\', '/', $this->getEntityClass()))) . 's';
+        $table = $entity->table ?? $entity->getTableName();
 
         if ($singular && str_ends_with($table, 's')) {
             return substr($table, 0, -1); // naive Singularform
@@ -75,16 +73,19 @@ abstract class AbstractRepository
      *
      * @return string
      */
-    protected function getPivotTable(string $relatedClass, string $selfTable, string $relatedTable): string
-    {
-        $entity = $this->getEntity();
+    protected function getPivotTable(
+        string $relatedClass,
+        string $selfTable,
+        string $relatedTable,
+    ): string {
+        $entity        = $this->getEntity();
         $relatedEntity = new $relatedClass();
 
         return DatabaseHelper::getPivotTableName(
             $entity,
             $relatedEntity,
             $selfTable,
-            $relatedTable
+            $relatedTable,
         );
     }
 
@@ -98,9 +99,12 @@ abstract class AbstractRepository
             return $this->columnWhitelistCache;
         }
 
-        $entity = $this->getEntity();
-        $fields = array_keys($entity->getFields());
-        $this->columnWhitelistCache = array_unique(array_merge([$entity->getPrimaryKey()], $fields));
+        $entity                     = $this->getEntity();
+        $fields                     = array_keys($entity->getFields());
+        $this->columnWhitelistCache = array_unique(
+            array_merge([$entity->getPrimaryKey()], $fields),
+        );
+
         return $this->columnWhitelistCache;
     }
 
@@ -139,9 +143,9 @@ abstract class AbstractRepository
     public function findAll(): array
     {
         $table = $this->quoteTableName($this->getTable());
-        $sql = "SELECT * FROM {$table}";
-        $stmt = $this->pdo->query($sql);
-        $rows = $stmt->fetchAll();
+        $sql   = "SELECT * FROM {$table}";
+        $stmt  = $this->pdo->query($sql);
+        $rows  = $stmt->fetchAll();
 
         return $this->hydrateMany($rows);
     }
@@ -157,13 +161,13 @@ abstract class AbstractRepository
      */
     public function findBy(
         array|string $criteria,
-        mixed $value   = null,
+        mixed $value = null,
         array $orderBy = [],
-        ?int $limit    = null,
-        ?int $offset   = null
+        ?int $limit = null,
+        ?int $offset = null,
     ): array {
-        $table = $this->quoteTableName($this->getTable());
-        $sql = "SELECT * FROM {$table} WHERE 1=1";
+        $table  = $this->quoteTableName($this->getTable());
+        $sql    = "SELECT * FROM {$table} WHERE 1=1";
         $params = [];
 
         if (is_string($criteria)) {
@@ -179,24 +183,24 @@ abstract class AbstractRepository
         if (!empty($orderBy)) {
             $parts = [];
             foreach ($orderBy as $field => $dir) {
-                $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
-                $quoted = $this->quoteColumn($field);
+                $dir     = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
+                $quoted  = $this->quoteColumn($field);
                 $parts[] = "{$quoted} {$dir}";
             }
-            $sql .= " ORDER BY " . implode(', ', $parts);
+            $sql .= ' ORDER BY ' . implode(', ', $parts);
         }
 
         if ($limit !== null) {
-            $sql .= " LIMIT " . (int)$limit;
+            $sql .= ' LIMIT ' . (int) $limit;
         } elseif ($offset !== null) {
             $sql .= match ($this->getDriverName()) {
-                'mysql' => ' LIMIT 18446744073709551615',
+                'mysql'  => ' LIMIT 18446744073709551615',
                 'sqlite' => ' LIMIT -1',
-                default => '',
+                default  => '',
             };
         }
         if ($offset !== null) {
-            $sql .= " OFFSET " . (int)$offset;
+            $sql .= ' OFFSET ' . (int) $offset;
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -214,10 +218,11 @@ abstract class AbstractRepository
      */
     public function findOneBy(
         array|string $criteria,
-        mixed $value   = null,
-        array $orderBy = []
+        mixed $value = null,
+        array $orderBy = [],
     ): ?EntityInterface {
         $results = $this->findBy($criteria, $value, $orderBy, limit: 1);
+
         return $results[0] ?? null;
     }
 
@@ -231,26 +236,26 @@ abstract class AbstractRepository
     {
         if (!is_subclass_of($pivotWithClass, EntityInterface::class)) {
             throw new InvalidArgumentException(
-                "{$pivotWithClass} must implement " . EntityInterface::class
+                "{$pivotWithClass} must implement " . EntityInterface::class,
             );
         }
 
-        $thisTable     = $this->getTable(true);
-        $relatedTable  = strtolower(basename(str_replace('\\', '/', $pivotWithClass)));
+        $thisTable    = $this->getTable(true);
+        $relatedTable = strtolower(basename(str_replace('\\', '/', $pivotWithClass)));
 
-        $pivotTable    = $this->getPivotTable($pivotWithClass, $thisTable, $relatedTable);
+        $pivotTable = $this->getPivotTable($pivotWithClass, $thisTable, $relatedTable);
 
-        $colSelf       = $thisTable . '_id';
-        $colPivot      = $relatedTable . '_id';
+        $colSelf  = $thisTable . '_id';
+        $colPivot = $relatedTable . '_id';
 
-        $pluralTable = $this->getTable();
-        $quotedMainTable = $this->quoteTableName($pluralTable);
+        $pluralTable      = $this->getTable();
+        $quotedMainTable  = $this->quoteTableName($pluralTable);
         $quotedPivotTable = $this->quoteTableName($pivotTable);
-        $entity = $this->getEntity();
-        $primaryKey = $entity->getPrimaryKey();
-        $quotedIdColumn = $this->quoteIdentifier($primaryKey);
-        $quotedColSelf = $this->quoteIdentifier($colSelf);
-        $quotedColPivot = $this->quoteIdentifier($colPivot);
+        $entity           = $this->getEntity();
+        $primaryKey       = $entity->getPrimaryKey();
+        $quotedIdColumn   = $this->quoteIdentifier($primaryKey);
+        $quotedColSelf    = $this->quoteIdentifier($colSelf);
+        $quotedColPivot   = $this->quoteIdentifier($colPivot);
 
         $sql = "SELECT {$quotedMainTable}.* FROM {$quotedMainTable}
             INNER JOIN {$quotedPivotTable} ON {$quotedPivotTable}.{$quotedColSelf} = {$quotedMainTable}.{$quotedIdColumn}
@@ -282,29 +287,28 @@ abstract class AbstractRepository
      */
     public function findOrCreateManyBy(string $field, array $values): array
     {
-        if (empty($values)) return [];
+        if (empty($values)) {
+            return [];
+        }
 
         $placeholders = implode(', ', array_fill(0, count($values), '?'));
-        $table = $this->quoteTableName($this->getTable());
-        $column = $this->quoteColumn($field);
-        $sql = "SELECT * FROM {$table} WHERE {$column} IN ($placeholders)";
-        $stmt = $this->pdo->prepare($sql);
+        $table        = $this->quoteTableName($this->getTable());
+        $column       = $this->quoteColumn($field);
+        $sql          = "SELECT * FROM {$table} WHERE {$column} IN ($placeholders)";
+        $stmt         = $this->pdo->prepare($sql);
         $stmt->execute($values);
         $rows = $stmt->fetchAll();
 
         $existing = [];
         foreach ($rows as $row) {
-            $key = $row[$field];
+            $key            = $row[$field];
             $existing[$key] = $this->hydrate($row);
         }
 
-        $missing = array_unique(
-            array_diff($values, array_keys($existing)),
-            SORT_REGULAR
-        );
+        $missing = array_unique(array_diff($values, array_keys($existing)), SORT_REGULAR);
 
         foreach ($missing as $value) {
-            $entity = $this->create($field, $value);
+            $entity           = $this->create($field, $value);
             $existing[$value] = $entity;
         }
 
@@ -320,9 +324,10 @@ abstract class AbstractRepository
      */
     protected function create(string $field, mixed $value): EntityInterface
     {
-        $class = $this->getEntityClass();
+        $class  = $this->getEntityClass();
         $entity = new $class([$field => $value]);
         $this->entityManager->save($entity);
+
         return $entity;
     }
 
@@ -334,6 +339,7 @@ abstract class AbstractRepository
     protected function hydrate(array $row): EntityInterface
     {
         $class = $this->getEntityClass();
+
         return new $class($row);
     }
 

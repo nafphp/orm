@@ -11,6 +11,6 @@ class DummyEntity implements EntityInterface
 {
     use EntityTrait;
 
-    protected ?int $id = null;
+    protected ?int $id     = null;
     protected string $name = 'dummy';
 }

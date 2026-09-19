@@ -8,10 +8,10 @@ use Naf\ORM\Model\AbstractModel;
 
 class Milestone extends AbstractModel
 {
-    protected ?int $id = null;
-    protected string $title = '';
+    protected ?int $id           = null;
+    protected string $title      = '';
     protected ?int $portfolio_id = null;
-    protected ?int $project_id = null;
+    protected ?int $project_id   = null;
 
     public function getPortfolioId(): ?int
     {

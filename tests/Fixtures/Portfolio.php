@@ -8,7 +8,7 @@ use Naf\ORM\Model\AbstractModel;
 
 class Portfolio extends AbstractModel
 {
-    protected ?int $id = null;
+    protected ?int $id     = null;
     protected string $name = '';
 
     /**

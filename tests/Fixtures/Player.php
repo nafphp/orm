@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Tests\Fixtures;
 
 use Naf\ORM\Model\AbstractModel;
-use Tests\Fixtures\Team;
 
 class Player extends AbstractModel
 {
-    protected ?int $id = null;
-    protected string $name = '';
-    protected int $age = 0;
-    protected array $teams = [];
+    protected ?int $id        = null;
+    protected string $name    = '';
+    protected int $age        = 0;
+    protected array $teams    = [];
     public array $pivotTables = [
         Team::class => 'player_team_links',
     ];

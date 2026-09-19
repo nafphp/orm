@@ -56,3 +56,7 @@ CRUD, query allow-lists, relationships and transaction rollback/nesting. Check e
 SQL against that engine when relevant. No `analyse` script is declared.
 
 User docs: [ORM](https://nafphp.github.io/docs/orm/).
+
+Follow the shared [PHP code style](https://github.com/nafphp/docs/blob/main/CODE_STYLE.md)
+and `.php-cs-fixer.dist.php`. Run `composer style:check`; `composer style:fix` applies the rules.
+Keep logical steps and local names readable, preserving public signatures and template output.

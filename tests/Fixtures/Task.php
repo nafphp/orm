@@ -8,9 +8,9 @@ use Naf\ORM\Model\AbstractModel;
 
 class Task extends AbstractModel
 {
-    protected ?int $id = null;
-    protected string $title = '';
-    protected ?int $project_id = null;
+    protected ?int $id          = null;
+    protected string $title     = '';
+    protected ?int $project_id  = null;
     protected ?Project $project = null;
 
     public function getTitle(): string
