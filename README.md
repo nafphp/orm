@@ -40,15 +40,3 @@ composer require naf/orm
 ## License
 
 MIT. Part of [NAF](https://github.com/nafphp/framework).
-
-
-## Behavior notes
-
-Entity persistence and repositories both honor getTableName(bool $singular = false). Repositories retain the existing public `$table` override for compatibility; use `getTableName()` for a shared persistence/query mapping in new models. EntityManager commits or rolls back only its own outer transaction; caller-owned and nested work uses savepoints. An external transaction therefore remains open after an application service completes.
-
-## PHP code style
-
-Source, tests and PHP templates follow the shared [NAF code style](https://github.com/nafphp/docs/blob/main/CODE_STYLE.md)
-(PER Coding Style 3.0 with the Nafinity readability rules). After `composer install`, run
-`composer style:check` to verify formatting or `composer style:fix` to apply it. The formatter
-is a development dependency. Review template output and run the package checks after changes.
