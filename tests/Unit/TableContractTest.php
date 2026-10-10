@@ -67,4 +67,24 @@ final class TableContractTest extends TestCase
         self::assertNotNull($read);
         self::assertSame($record->getId(), $read->getId());
     }
+
+    public function testAPublicTableMappingIsUsedForWritesToo(): void
+    {
+        $pdo = new PDO('sqlite::memory:', null, null, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+        $pdo->exec('CREATE TABLE legacy_named_records(id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL)');
+        $em     = new EntityManager($pdo);
+        $record = new LegacyNamedRecord(['value' => 'written']);
+
+        // Before, save() wrote to "legacynamedrecords" while the repository read the mapped table.
+        $em->save($record);
+
+        $read = (new LegacyNamedRecordRepository($pdo, $em))->findOneBy('value', 'written');
+        self::assertNotNull($read);
+        self::assertSame($record->getId(), $read->getId());
+        self::assertSame('legacy_named_records', $record->getTableName());
+        self::assertSame('legacynamedrecord', $record->getTableName(true));
+    }
 }

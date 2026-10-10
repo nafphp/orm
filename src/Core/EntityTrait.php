@@ -45,12 +45,29 @@ trait EntityTrait
      */
     public function getTableName(bool $singular = false): string
     {
+        // A public `table` property is the older way to name a table. Repositories have
+        // always read from it; the entity manager has to write to the same table.
+        if (!$singular && $this->hasPublicTableName()) {
+            return $this->table;
+        }
+
         $result = strtolower(substr(static::class, strrpos(static::class, '\\') + 1));
         if ($singular) {
             return $result;
         }
 
         return $result . 's';
+    }
+
+    private function hasPublicTableName(): bool
+    {
+        if (!property_exists($this, 'table')) {
+            return false;
+        }
+
+        $property = new ReflectionProperty($this, 'table');
+
+        return $property->isPublic() && is_string($this->table) && $this->table !== '';
     }
 
     /**
